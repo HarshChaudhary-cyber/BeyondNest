@@ -40,6 +40,28 @@ export const QuestionScreen: React.FC<QuestionScreenProps> = ({
     headingRef.current?.focus()
   }, [question.id])
 
+  const handleRadioGroupKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (question.type !== 'single_choice' || !question.options || question.options.length === 0) return
+    const options = question.options
+    const currentIndex = options.findIndex((opt) => opt.id === currentAnswer)
+
+    if (e.key === 'ArrowDown' || e.key === 'ArrowRight') {
+      e.preventDefault()
+      const nextIndex = currentIndex < options.length - 1 ? currentIndex + 1 : 0
+      const nextOption = options[nextIndex]
+      onAnswerChange(question.id, nextOption.id)
+      const input = document.getElementById(`card-input-${nextOption.id}`)
+      input?.focus()
+    } else if (e.key === 'ArrowUp' || e.key === 'ArrowLeft') {
+      e.preventDefault()
+      const prevIndex = currentIndex > 0 ? currentIndex - 1 : options.length - 1
+      const prevOption = options[prevIndex]
+      onAnswerChange(question.id, prevOption.id)
+      const input = document.getElementById(`card-input-${prevOption.id}`)
+      input?.focus()
+    }
+  }
+
   return (
     <main className={styles.wrapper}>
       <div className={styles.topBar}>
@@ -65,7 +87,7 @@ export const QuestionScreen: React.FC<QuestionScreenProps> = ({
 
           {/* Validation Error Banner */}
           {validationError && (
-            <div className={styles.errorAlert} role="alert">
+            <div className={styles.errorAlert} role="alert" id={`q-error-${question.id}`}>
               <AlertCircle size={18} />
               <span>{validationError}</span>
             </div>
@@ -77,11 +99,13 @@ export const QuestionScreen: React.FC<QuestionScreenProps> = ({
               role="radiogroup" 
               aria-labelledby={`q-title-${question.id}`}
               className={styles.optionsGroup}
+              onKeyDown={handleRadioGroupKeyDown}
             >
               {question.options.map((opt) => (
                 <Card
                   key={opt.id}
                   id={opt.id}
+                  name={question.id}
                   label={opt.label}
                   description={opt.description}
                   badge={opt.badge}

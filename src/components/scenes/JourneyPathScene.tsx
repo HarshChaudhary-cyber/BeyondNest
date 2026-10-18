@@ -2,6 +2,7 @@ import React, { useRef, useMemo } from 'react'
 import * as THREE from 'three'
 import { useFrame } from '@react-three/fiber'
 import { SoftLighting } from './shared/SoftLighting'
+import { THEME_3D } from '../../config/theme3d'
 import type { JourneyStage } from '../../store/types'
 
 interface JourneyPathSceneProps {
@@ -62,35 +63,35 @@ const TravellerMarker: React.FC<{
       {/* Explorer Hat */}
       <mesh position={[0, 0.58, 0]}>
         <cylinderGeometry args={[0.26, 0.28, 0.04, 16]} />
-        <meshStandardMaterial color="#B45309" roughness={0.6} />
+        <meshStandardMaterial color={THEME_3D.colors.amberDark} roughness={0.6} />
       </mesh>
       <mesh position={[0, 0.65, 0]}>
         <sphereGeometry args={[0.16, 12, 12, 0, Math.PI * 2, 0, Math.PI * 0.5]} />
-        <meshStandardMaterial color="#B45309" roughness={0.6} />
+        <meshStandardMaterial color={THEME_3D.colors.amberDark} roughness={0.6} />
       </mesh>
 
       {/* Head */}
       <mesh position={[0, 0.46, 0]} castShadow>
         <sphereGeometry args={[0.14, 16, 16]} />
-        <meshStandardMaterial color="#FFE4E6" roughness={0.4} />
+        <meshStandardMaterial color={THEME_3D.colors.skinWarm} roughness={0.4} />
       </mesh>
 
       {/* Torso / Teal Travel Parka */}
       <mesh position={[0, 0.24, 0]} castShadow>
         <cylinderGeometry args={[0.15, 0.18, 0.32, 16]} />
-        <meshStandardMaterial color="#0D9488" roughness={0.5} />
+        <meshStandardMaterial color={THEME_3D.colors.tealLand} roughness={0.5} />
       </mesh>
 
       {/* Backpack on back */}
       <mesh position={[0, 0.26, -0.16]} castShadow>
         <boxGeometry args={[0.2, 0.26, 0.14]} />
-        <meshStandardMaterial color="#78350F" roughness={0.6} />
+        <meshStandardMaterial color={THEME_3D.colors.amberDeep} roughness={0.6} />
       </mesh>
 
       {/* Walking Staff in hand */}
       <mesh position={[0.22, 0.22, 0.08]} rotation={[0.1, 0, -0.1]}>
         <cylinderGeometry args={[0.015, 0.015, 0.65, 8]} />
-        <meshStandardMaterial color="#D97706" />
+        <meshStandardMaterial color={THEME_3D.colors.brassCasing} />
       </mesh>
     </group>
   )
@@ -126,7 +127,7 @@ export const JourneyPathScene: React.FC<JourneyPathSceneProps> = ({
         {/* Curved Path Trail */}
         {/* @ts-expect-error Three line JSX */}
         <line geometry={pathLineGeometry}>
-          <lineBasicMaterial color="#38BDF8" linewidth={3} transparent opacity={0.7} />
+          <lineBasicMaterial color={THEME_3D.colors.skyAtmosphere} linewidth={3} transparent opacity={0.7} />
         </line>
 
         {/* 5 Milestone Pedestals & Markers */}
@@ -140,24 +141,30 @@ export const JourneyPathScene: React.FC<JourneyPathSceneProps> = ({
               <mesh position={[0, -0.05, 0]} receiveShadow>
                 <cylinderGeometry args={[0.42, 0.46, 0.14, 20]} />
                 <meshStandardMaterial 
-                  color={isCurrent ? '#14B8A6' : isReached ? '#CCFBF1' : '#F1F5F9'} 
+                  color={
+                    isCurrent 
+                      ? THEME_3D.colors.tealLandHighlight 
+                      : isReached 
+                        ? THEME_3D.colors.tealPill 
+                        : THEME_3D.colors.navy100
+                  } 
                   roughness={0.4}
-                  emissive={isCurrent ? '#0D9488' : '#000000'}
-                  emissiveIntensity={isCurrent ? 0.35 : 0}
+                  emissive={isCurrent ? THEME_3D.colors.tealLand : '#000000'}
+                  emissiveIntensity={isCurrent ? THEME_3D.materials.activeHighlightEmissiveIntensity : 0}
                 />
               </mesh>
 
               {/* Milestone Pillar / Pin */}
               <mesh position={[0, 0.2, 0]} castShadow>
                 <cylinderGeometry args={[0.06, 0.08, 0.35, 12]} />
-                <meshStandardMaterial color={isCurrent ? '#0D9488' : '#94A3B8'} />
+                <meshStandardMaterial color={isCurrent ? THEME_3D.colors.tealLand : THEME_3D.colors.navy400} />
               </mesh>
 
               {/* Numbered / Glowing Top Bead */}
               <mesh position={[0, 0.42, 0]} castShadow>
                 <sphereGeometry args={[0.13, 16, 16]} />
                 <meshStandardMaterial 
-                  color={isCurrent ? '#F59E0B' : isReached ? '#0D9488' : '#CBD5E1'} 
+                  color={isCurrent ? THEME_3D.colors.amberGold : isReached ? THEME_3D.colors.tealLand : THEME_3D.colors.navy200} 
                   roughness={0.2}
                   metalness={0.4}
                 />

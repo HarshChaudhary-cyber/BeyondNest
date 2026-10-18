@@ -3,7 +3,8 @@ import * as THREE from 'three'
 import { useFrame } from '@react-three/fiber'
 import { SoftLighting } from './shared/SoftLighting'
 import { GlobeMesh } from './shared/GlobeMesh'
-import { latLonToVector3, calculateGlobeRotationForLatLon } from './shared/coordinates'
+import { latLonToVector3, calculateGlobeTargetQuaternion } from './shared/coordinates'
+import { THEME_3D } from '../../config/theme3d'
 import type { CountryInfo } from '../../store/types'
 
 interface CountryGlobeSceneProps {
@@ -12,7 +13,7 @@ interface CountryGlobeSceneProps {
   reducedMotion?: boolean
 }
 
-// 3D Country Location Pin
+// 3D Country Location Pin — Rendered inside the globe's geographic transform
 const CountryPin: React.FC<{
   position: THREE.Vector3
   countryName: string
@@ -38,27 +39,36 @@ const CountryPin: React.FC<{
 
   return (
     <group ref={pinGroupRef} position={position} quaternion={orientationQuaternion}>
-      {/* Ground Pulse Ring */}
+      {/* Ground Pulse Ring on the globe surface */}
       <mesh ref={pulseRef} position={[0, 0.02, 0]}>
         <ringGeometry args={[0.08, 0.16, 24]} />
-        <meshBasicMaterial color="#38BDF8" transparent opacity={0.6} side={THREE.DoubleSide} />
+        <meshBasicMaterial 
+          color={THEME_3D.colors.skyAtmosphere} 
+          transparent 
+          opacity={0.7} 
+          side={THREE.DoubleSide} 
+        />
       </mesh>
 
-      {/* Pin Needle Base */}
+      {/* Pin Needle Shaft */}
       <mesh position={[0, 0.15, 0]} castShadow>
         <cylinderGeometry args={[0.02, 0.05, 0.3, 12]} />
-        <meshStandardMaterial color="#FAF9F5" metalness={0.6} roughness={0.2} />
+        <meshStandardMaterial 
+          color={THEME_3D.colors.warmWhite} 
+          metalness={0.6} 
+          roughness={0.2} 
+        />
       </mesh>
 
       {/* Pin Head */}
       <mesh position={[0, 0.34, 0]} castShadow>
         <sphereGeometry args={[0.13, 20, 20]} />
         <meshStandardMaterial 
-          color="#E11D48" 
+          color={THEME_3D.colors.pinRed} 
           roughness={0.2} 
           metalness={0.3}
-          emissive="#BE123C"
-          emissiveIntensity={0.2}
+          emissive={THEME_3D.colors.pinRedEmissive}
+          emissiveIntensity={0.25}
         />
       </mesh>
     </group>
@@ -72,9 +82,9 @@ export const CountryGlobeScene: React.FC<CountryGlobeSceneProps> = ({
 }) => {
   const globeRadius = 2.0
 
-  const targetRotation = useMemo(() => {
+  const targetQuaternion = useMemo(() => {
     if (!selectedCountry) return undefined
-    return calculateGlobeRotationForLatLon(selectedCountry.lat, selectedCountry.lon)
+    return calculateGlobeTargetQuaternion(selectedCountry.lat, selectedCountry.lon)
   }, [selectedCountry])
 
   const pinPosition = useMemo(() => {
@@ -86,23 +96,24 @@ export const CountryGlobeScene: React.FC<CountryGlobeSceneProps> = ({
     <>
       <SoftLighting />
 
+      {/* GlobeMesh containing the pin inside the same geographic transform */}
       <GlobeMesh
         radius={globeRadius}
         autoRotate={!selectedCountry && !reducedMotion}
         rotationSpeed={0.002}
-        targetRotation={targetRotation}
+        targetQuaternion={targetQuaternion}
         paused={paused}
         reducedMotion={reducedMotion}
-      />
-
-      {pinPosition && selectedCountry && (
-        <CountryPin 
-          position={pinPosition} 
-          countryName={selectedCountry.name}
-          countryCode={selectedCountry.code}
-          reducedMotion={reducedMotion}
-        />
-      )}
+      >
+        {pinPosition && selectedCountry && (
+          <CountryPin 
+            position={pinPosition} 
+            countryName={selectedCountry.name}
+            countryCode={selectedCountry.code}
+            reducedMotion={reducedMotion}
+          />
+        )}
+      </GlobeMesh>
     </>
   )
 }

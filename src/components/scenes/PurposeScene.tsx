@@ -2,6 +2,7 @@ import React, { useRef } from 'react'
 import * as THREE from 'three'
 import { useFrame } from '@react-three/fiber'
 import { SoftLighting } from './shared/SoftLighting'
+import { THEME_3D } from '../../config/theme3d'
 import type { RelocationPurpose } from '../../store/types'
 
 interface PurposeSceneProps {
@@ -35,39 +36,39 @@ const GraduationCap: React.FC<{ isSelected: boolean; reducedMotion: boolean }> =
       <mesh position={[0, -0.6, 0]} receiveShadow>
         <cylinderGeometry args={[0.75, 0.8, 0.1, 24]} />
         <meshStandardMaterial 
-          color={isSelected ? '#14B8A6' : '#E2E8F0'} 
+          color={isSelected ? THEME_3D.colors.tealLandHighlight : THEME_3D.colors.navy200} 
           roughness={0.4}
-          emissive={isSelected ? '#0D9488' : '#000000'}
-          emissiveIntensity={isSelected ? 0.3 : 0}
+          emissive={isSelected ? THEME_3D.colors.tealLand : '#000000'}
+          emissiveIntensity={isSelected ? THEME_3D.materials.activeHighlightEmissiveIntensity : 0}
         />
       </mesh>
 
       {/* Skull cap */}
       <mesh position={[0, -0.15, 0]} castShadow>
         <cylinderGeometry args={[0.42, 0.36, 0.3, 20]} />
-        <meshStandardMaterial color="#0F172A" roughness={0.3} />
+        <meshStandardMaterial color={THEME_3D.colors.navy900} roughness={0.3} />
       </mesh>
 
       {/* Mortarboard flat diamond top */}
       <mesh position={[0, 0.05, 0]} rotation={[0, Math.PI / 4, 0]} castShadow>
         <boxGeometry args={[1.2, 0.06, 1.2]} />
-        <meshStandardMaterial color="#1E293B" roughness={0.25} />
+        <meshStandardMaterial color={THEME_3D.colors.navy800} roughness={0.25} />
       </mesh>
 
       {/* Center button */}
       <mesh position={[0, 0.1, 0]}>
         <sphereGeometry args={[0.08, 12, 12]} />
-        <meshStandardMaterial color="#F59E0B" metalness={0.6} roughness={0.2} />
+        <meshStandardMaterial color={THEME_3D.colors.amberGold} metalness={0.6} roughness={0.2} />
       </mesh>
 
       {/* Hanging tassel cord and fringe */}
       <mesh position={[0.35, -0.05, 0.35]}>
         <cylinderGeometry args={[0.015, 0.015, 0.35, 8]} />
-        <meshStandardMaterial color="#F59E0B" />
+        <meshStandardMaterial color={THEME_3D.colors.amberGold} />
       </mesh>
       <mesh position={[0.35, -0.25, 0.35]}>
         <coneGeometry args={[0.06, 0.18, 12]} />
-        <meshStandardMaterial color="#F59E0B" />
+        <meshStandardMaterial color={THEME_3D.colors.amberGold} />
       </mesh>
     </group>
   )
@@ -98,35 +99,35 @@ const Briefcase: React.FC<{ isSelected: boolean; reducedMotion: boolean }> = ({ 
       <mesh position={[0, -0.6, 0]} receiveShadow>
         <cylinderGeometry args={[0.75, 0.8, 0.1, 24]} />
         <meshStandardMaterial 
-          color={isSelected ? '#14B8A6' : '#E2E8F0'} 
+          color={isSelected ? THEME_3D.colors.tealLandHighlight : THEME_3D.colors.navy200} 
           roughness={0.4}
-          emissive={isSelected ? '#0D9488' : '#000000'}
-          emissiveIntensity={isSelected ? 0.3 : 0}
+          emissive={isSelected ? THEME_3D.colors.tealLand : '#000000'}
+          emissiveIntensity={isSelected ? THEME_3D.materials.activeHighlightEmissiveIntensity : 0}
         />
       </mesh>
 
       {/* Main Leather Case */}
       <mesh position={[0, -0.1, 0]} castShadow>
         <boxGeometry args={[1.1, 0.75, 0.4]} />
-        <meshStandardMaterial color="#B45309" roughness={0.5} />
+        <meshStandardMaterial color={THEME_3D.colors.amberDark} roughness={0.5} />
       </mesh>
 
       {/* Center lock latch */}
       <mesh position={[0, -0.05, 0.21]}>
         <boxGeometry args={[0.16, 0.14, 0.04]} />
-        <meshStandardMaterial color="#F59E0B" metalness={0.8} roughness={0.2} />
+        <meshStandardMaterial color={THEME_3D.colors.amberGold} metalness={0.8} roughness={0.2} />
       </mesh>
 
       {/* Handle */}
       <mesh position={[0, 0.36, 0]}>
         <torusGeometry args={[0.18, 0.035, 8, 16, Math.PI]} />
-        <meshStandardMaterial color="#78350F" roughness={0.4} />
+        <meshStandardMaterial color={THEME_3D.colors.amberDeep} roughness={0.4} />
       </mesh>
 
       {/* Luggage tag attached */}
       <mesh position={[0.3, 0.2, 0.2]} rotation={[0.2, 0, -0.4]}>
         <boxGeometry args={[0.12, 0.22, 0.02]} />
-        <meshStandardMaterial color="#0D9488" />
+        <meshStandardMaterial color={THEME_3D.colors.tealLand} />
       </mesh>
     </group>
   )
@@ -157,41 +158,45 @@ const House: React.FC<{ isSelected: boolean; reducedMotion: boolean }> = ({ isSe
       <mesh position={[0, -0.6, 0]} receiveShadow>
         <cylinderGeometry args={[0.75, 0.8, 0.1, 24]} />
         <meshStandardMaterial 
-          color={isSelected ? '#14B8A6' : '#E2E8F0'} 
+          color={isSelected ? THEME_3D.colors.tealLandHighlight : THEME_3D.colors.navy200} 
           roughness={0.4}
-          emissive={isSelected ? '#0D9488' : '#000000'}
-          emissiveIntensity={isSelected ? 0.3 : 0}
+          emissive={isSelected ? THEME_3D.colors.tealLand : '#000000'}
+          emissiveIntensity={isSelected ? THEME_3D.materials.activeHighlightEmissiveIntensity : 0}
         />
       </mesh>
 
       {/* House Body */}
       <mesh position={[0, -0.15, 0]} castShadow>
         <boxGeometry args={[0.9, 0.75, 0.85]} />
-        <meshStandardMaterial color="#FAF9F5" roughness={0.3} />
+        <meshStandardMaterial color={THEME_3D.colors.warmWhite} roughness={0.3} />
       </mesh>
 
       {/* Pitched Roof */}
       <mesh position={[0, 0.4, 0]} rotation={[0, 0, Math.PI / 4]} castShadow>
         <boxGeometry args={[0.75, 0.75, 0.95]} />
-        <meshStandardMaterial color="#0F766E" roughness={0.4} />
+        <meshStandardMaterial color={THEME_3D.colors.tealDeep} roughness={0.4} />
       </mesh>
 
       {/* Chimney */}
       <mesh position={[0.25, 0.65, 0]} castShadow>
         <cylinderGeometry args={[0.08, 0.08, 0.35, 8]} />
-        <meshStandardMaterial color="#B45309" />
+        <meshStandardMaterial color={THEME_3D.colors.amberDark} />
       </mesh>
 
       {/* Arched Entrance Door */}
       <mesh position={[0, -0.28, 0.44]}>
         <boxGeometry args={[0.26, 0.48, 0.03]} />
-        <meshStandardMaterial color="#B45309" roughness={0.4} />
+        <meshStandardMaterial color={THEME_3D.colors.amberDark} roughness={0.4} />
       </mesh>
 
       {/* Warm Window */}
       <mesh position={[-0.24, -0.05, 0.44]}>
         <boxGeometry args={[0.18, 0.18, 0.02]} />
-        <meshStandardMaterial color="#FDE68A" emissive="#F59E0B" emissiveIntensity={0.6} />
+        <meshStandardMaterial 
+          color={THEME_3D.colors.windowGlow} 
+          emissive={THEME_3D.colors.amberGold} 
+          emissiveIntensity={0.6} 
+        />
       </mesh>
     </group>
   )
@@ -227,23 +232,23 @@ const Compass: React.FC<{ isSelected: boolean; reducedMotion: boolean }> = ({ is
       <mesh position={[0, -0.6, 0]} receiveShadow>
         <cylinderGeometry args={[0.75, 0.8, 0.1, 24]} />
         <meshStandardMaterial 
-          color={isSelected ? '#14B8A6' : '#E2E8F0'} 
+          color={isSelected ? THEME_3D.colors.tealLandHighlight : THEME_3D.colors.navy200} 
           roughness={0.4}
-          emissive={isSelected ? '#0D9488' : '#000000'}
-          emissiveIntensity={isSelected ? 0.3 : 0}
+          emissive={isSelected ? THEME_3D.colors.tealLand : '#000000'}
+          emissiveIntensity={isSelected ? THEME_3D.materials.activeHighlightEmissiveIntensity : 0}
         />
       </mesh>
 
       {/* Brass compass casing */}
       <mesh position={[0, -0.1, 0]} castShadow>
         <cylinderGeometry args={[0.55, 0.58, 0.2, 24]} />
-        <meshStandardMaterial color="#D97706" metalness={0.7} roughness={0.3} />
+        <meshStandardMaterial color={THEME_3D.colors.brassCasing} metalness={0.7} roughness={0.3} />
       </mesh>
 
       {/* Compass Dial Face */}
       <mesh position={[0, 0.02, 0]}>
         <cylinderGeometry args={[0.48, 0.48, 0.02, 24]} />
-        <meshStandardMaterial color="#FAF9F5" roughness={0.2} />
+        <meshStandardMaterial color={THEME_3D.colors.warmWhite} roughness={0.2} />
       </mesh>
 
       {/* Rotating Magnetic Needle */}
@@ -251,24 +256,24 @@ const Compass: React.FC<{ isSelected: boolean; reducedMotion: boolean }> = ({ is
         {/* North needle tip (Red) */}
         <mesh position={[0, 0.2, 0]}>
           <coneGeometry args={[0.07, 0.38, 4]} />
-          <meshStandardMaterial color="#E11D48" />
+          <meshStandardMaterial color={THEME_3D.colors.pinRed} />
         </mesh>
         {/* South needle tip (Teal) */}
         <mesh position={[0, -0.2, 0]} rotation={[0, 0, Math.PI]}>
           <coneGeometry args={[0.07, 0.38, 4]} />
-          <meshStandardMaterial color="#0D9488" />
+          <meshStandardMaterial color={THEME_3D.colors.tealLand} />
         </mesh>
         {/* Center pivot pin */}
         <mesh position={[0, 0, 0.04]}>
           <sphereGeometry args={[0.06, 12, 12]} />
-          <meshStandardMaterial color="#F59E0B" metalness={0.8} />
+          <meshStandardMaterial color={THEME_3D.colors.amberGold} metalness={0.8} />
         </mesh>
       </group>
 
       {/* Top hanger ring */}
       <mesh position={[0, 0.52, 0]} rotation={[0, 0, 0]}>
         <torusGeometry args={[0.12, 0.03, 8, 16]} />
-        <meshStandardMaterial color="#D97706" metalness={0.7} />
+        <meshStandardMaterial color={THEME_3D.colors.brassCasing} metalness={0.7} />
       </mesh>
     </group>
   )

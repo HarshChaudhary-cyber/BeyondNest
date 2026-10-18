@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useId, type KeyboardEvent } from 'react'
+import React, { useState, useRef, useEffect, useId, type KeyboardEvent, type FocusEvent } from 'react'
 import { Search, X, Check, MapPin } from 'lucide-react'
 import type { CountryInfo } from '../../../store/types'
 import { searchCountries } from '../../../data/countries'
@@ -23,22 +23,49 @@ export const CountryCombobox: React.FC<CountryComboboxProps> = ({
   const [isOpen, setIsOpen] = useState(false)
   const [highlightedIndex, setHighlightedIndex] = useState(-1)
   
+  const wrapperRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const listboxRef = useRef<HTMLUListElement>(null)
   const comboboxId = useId()
   const listboxId = `country-listbox-${comboboxId}`
+  const errorId = error ? `country-error-${comboboxId}` : undefined
 
   const filteredCountries = searchCountries(query)
 
+  // Close combobox when clicking outside
+  useEffect(() => {
+    const handlePointerDownOutside = (event: MouseEvent | TouchEvent) => {
+      if (wrapperRef.current && !wrapperRef.current.contains(event.target as Node)) {
+        setIsOpen(false)
+        setHighlightedIndex(-1)
+      }
+    }
+
+    document.addEventListener('mousedown', handlePointerDownOutside)
+    document.addEventListener('touchstart', handlePointerDownOutside)
+    return () => {
+      document.removeEventListener('mousedown', handlePointerDownOutside)
+      document.removeEventListener('touchstart', handlePointerDownOutside)
+    }
+  }, [])
+
+  // Close combobox when focus leaves the component container
+  const handleContainerBlur = (e: FocusEvent<HTMLDivElement>) => {
+    if (!wrapperRef.current?.contains(e.relatedTarget as Node)) {
+      setIsOpen(false)
+      setHighlightedIndex(-1)
+    }
+  }
+
   // Scroll active option into view
   useEffect(() => {
-    if (highlightedIndex >= 0 && listboxRef.current) {
+    if (isOpen && highlightedIndex >= 0 && listboxRef.current) {
       const activeElement = listboxRef.current.children[highlightedIndex] as HTMLElement
       if (activeElement && typeof activeElement.scrollIntoView === 'function') {
         activeElement.scrollIntoView({ block: 'nearest' })
       }
     }
-  }, [highlightedIndex])
+  }, [isOpen, highlightedIndex])
 
   const handleSelect = (country: CountryInfo) => {
     onChange(country)
@@ -62,7 +89,7 @@ export const CountryCombobox: React.FC<CountryComboboxProps> = ({
       if (e.key === 'ArrowDown' || e.key === 'ArrowUp' || e.key === 'Enter') {
         e.preventDefault()
         setIsOpen(true)
-        setHighlightedIndex(0)
+        setHighlightedIndex(filteredCountries.length > 0 ? 0 : -1)
       }
       return
     }
@@ -70,15 +97,19 @@ export const CountryCombobox: React.FC<CountryComboboxProps> = ({
     switch (e.key) {
       case 'ArrowDown':
         e.preventDefault()
-        setHighlightedIndex(prev => (prev < filteredCountries.length - 1 ? prev + 1 : 0))
+        if (filteredCountries.length > 0) {
+          setHighlightedIndex(prev => (prev < filteredCountries.length - 1 ? prev + 1 : 0))
+        }
         break
       case 'ArrowUp':
         e.preventDefault()
-        setHighlightedIndex(prev => (prev > 0 ? prev - 1 : filteredCountries.length - 1))
+        if (filteredCountries.length > 0) {
+          setHighlightedIndex(prev => (prev > 0 ? prev - 1 : filteredCountries.length - 1))
+        }
         break
       case 'Enter':
         e.preventDefault()
-        if (highlightedIndex >= 0 && filteredCountries[highlightedIndex]) {
+        if (highlightedIndex >= 0 && highlightedIndex < filteredCountries.length) {
           handleSelect(filteredCountries[highlightedIndex])
         }
         break
@@ -89,17 +120,30 @@ export const CountryCombobox: React.FC<CountryComboboxProps> = ({
         break
       case 'Home':
         e.preventDefault()
-        setHighlightedIndex(0)
+        if (filteredCountries.length > 0) {
+          setHighlightedIndex(0)
+        }
         break
       case 'End':
         e.preventDefault()
-        setHighlightedIndex(filteredCountries.length - 1)
+        if (filteredCountries.length > 0) {
+          setHighlightedIndex(filteredCountries.length - 1)
+        }
         break
     }
   }
 
+  const hasActiveOption = isOpen && highlightedIndex >= 0 && highlightedIndex < filteredCountries.length
+  const activeDescendantId = hasActiveOption
+    ? `country-opt-${comboboxId}-${highlightedIndex}`
+    : undefined
+
   return (
-    <div className={styles.comboboxWrapper}>
+    <div
+      ref={wrapperRef}
+      className={styles.comboboxWrapper}
+      onBlur={handleContainerBlur}
+    >
       <label htmlFor={`input-${comboboxId}`} className="sr-only">
         Search and select current country
       </label>
@@ -117,18 +161,23 @@ export const CountryCombobox: React.FC<CountryComboboxProps> = ({
           aria-autocomplete="list"
           aria-expanded={isOpen}
           aria-controls={listboxId}
-          aria-activedescendant={
-            highlightedIndex >= 0 ? `country-opt-${comboboxId}-${highlightedIndex}` : undefined
-          }
+          aria-activedescendant={activeDescendantId}
+          aria-invalid={Boolean(error)}
+          aria-describedby={errorId}
           className={styles.input}
           placeholder={value ? `Selected: ${value.name} (type to change)` : 'Type your country name or code...'}
           value={query}
           onChange={(e) => {
-            setQuery(e.target.value)
+            const nextQuery = e.target.value
+            setQuery(nextQuery)
             setIsOpen(true)
-            setHighlightedIndex(0)
+            const matches = searchCountries(nextQuery)
+            setHighlightedIndex(matches.length > 0 ? 0 : -1)
           }}
-          onFocus={() => setIsOpen(true)}
+          onFocus={() => {
+            setIsOpen(true)
+            setHighlightedIndex(filteredCountries.length > 0 ? 0 : -1)
+          }}
           onKeyDown={handleKeyDown}
           disabled={disabled}
         />
@@ -205,10 +254,15 @@ export const CountryCombobox: React.FC<CountryComboboxProps> = ({
       )}
 
       {error && (
-        <div style={{ color: '#E11D48', fontSize: '13px', fontWeight: 600 }}>
+        <div
+          id={errorId}
+          role="alert"
+          style={{ color: '#E11D48', fontSize: '13px', fontWeight: 600 }}
+        >
           {error}
         </div>
       )}
     </div>
   )
 }
+

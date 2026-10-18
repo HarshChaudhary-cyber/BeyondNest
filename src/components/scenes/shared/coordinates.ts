@@ -6,6 +6,10 @@ import * as THREE from 'three'
  * Geographic convention:
  * - Latitude: -90° (South Pole) to +90° (North Pole)
  * - Longitude: -180° (West) to +180° (East), 0° is Prime Meridian
+ * 
+ * Aligns precisely with Three.js SphereGeometry UV mapping:
+ * - u = (lon + 180) / 360
+ * - v = (lat + 90) / 180 (v = 1 at North Pole, v = 0 at South Pole)
  */
 export function latLonToVector3(lat: number, lon: number, radius: number): THREE.Vector3 {
   const phi = (90 - lat) * (Math.PI / 180)
@@ -19,14 +23,47 @@ export function latLonToVector3(lat: number, lon: number, radius: number): THREE
 }
 
 /**
- * Calculates target Euler angles (x, y, z) to rotate a sphere so that the given (lat, lon)
- * directly faces the camera at (0, 0, distance).
+ * Calculates the exact target rotation quaternion so that the given (lat, lon)
+ * directly faces the front camera at (0, 0, +distance) while maintaining
+ * the Earth's North Pole upright (in the positive Y direction without sideways tilt).
+ * 
+ * Uses an orthonormal frame inversion:
+ * - Forward vector (faces camera +Z): normalized surface position P
+ * - Right vector: WorldUp (0, 1, 0) x Forward
+ * - Up vector: Forward x Right
  */
-export function calculateGlobeRotationForLatLon(lat: number, lon: number): { x: number; y: number } {
-  // To bring lat to the equator (facing z+): rotate around X by -lat
-  const rotX = (lat * Math.PI) / 180
-  // To bring lon to face the front (facing z+): rotate around Y
-  const rotY = -((lon + 90) * Math.PI) / 180
+export function calculateGlobeTargetQuaternion(lat: number, lon: number): THREE.Quaternion {
+  const p = latLonToVector3(lat, lon, 1.0)
+  const pNorm = p.clone().normalize()
+  const worldUp = new THREE.Vector3(0, 1, 0)
 
-  return { x: rotX, y: rotY }
+  let right = new THREE.Vector3().crossVectors(worldUp, pNorm)
+  if (right.lengthSq() < 1e-6) {
+    // Exactly at poles (lat = +90 or -90)
+    right = new THREE.Vector3(1, 0, 0)
+  } else {
+    right.normalize()
+  }
+
+  const up = new THREE.Vector3().crossVectors(pNorm, right).normalize()
+
+  // Frame matrix whose transpose/inverse maps pNorm to (0, 0, 1) and up to (0, 1, 0)
+  const matrix = new THREE.Matrix4().set(
+    right.x, right.y, right.z, 0,
+    up.x, up.y, up.z, 0,
+    pNorm.x, pNorm.y, pNorm.z, 0,
+    0, 0, 0, 1
+  )
+
+  return new THREE.Quaternion().setFromRotationMatrix(matrix)
+}
+
+export const GLOBE_RADIUS = 2.0
+
+/**
+ * Legacy compatibility helper returning Euler angles if needed.
+ */
+export function calculateGlobeRotationForLatLon(lat: number, lon: number): THREE.Euler {
+  const q = calculateGlobeTargetQuaternion(lat, lon)
+  return new THREE.Euler().setFromQuaternion(q, 'YXZ')
 }

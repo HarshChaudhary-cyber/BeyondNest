@@ -23,18 +23,18 @@ export const WelcomeGlobeScene: React.FC<WelcomeGlobeSceneProps> = ({
         rotationSpeed={0.002}
         paused={paused}
         reducedMotion={reducedMotion}
-      />
-
-      {/* International travel route with airplane flying between continents */}
-      <TravelRoute
-        startLat={48.8566}   // Paris / London
-        startLon={2.3522}
-        endLat={35.6762}     // Tokyo
-        endLon={139.6503}
-        globeRadius={2.0}
-        paused={paused}
-        reducedMotion={reducedMotion}
-      />
+      >
+        {/* International travel route attached to the rotating globe transform */}
+        <TravelRoute
+          startLat={48.8566}   // Paris
+          startLon={2.3522}
+          endLat={35.6762}     // Tokyo
+          endLon={139.6503}
+          globeRadius={2.0}
+          paused={paused}
+          reducedMotion={reducedMotion}
+        />
+      </GlobeMesh>
     </>
   )
 }

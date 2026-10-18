@@ -4,11 +4,11 @@ import type {
   QuestionId, 
   StoredOnboardingState, 
   FlowScreen, 
-  CountryInfo,
   RelocationPurpose,
   JourneyStage 
 } from './types'
 import { QUESTIONS, getNextQuestionId, getPreviousQuestionId, getQuestionById } from '../config/questions'
+import { findCountryByCode } from '../data/countries'
 import { FEATURE_FLAGS } from '../config/featureFlags'
 
 export const STORAGE_KEY = 'beyondnest_onboarding_v1'
@@ -23,7 +23,32 @@ export const DEFAULT_INITIAL_STATE: StoredOnboardingState = {
 }
 
 /**
- * Validates and sanitizes stored data safely against corruption or schema drift.
+ * Returns the first required question ID that lacks a valid answer,
+ * or null if all required questions have valid answers.
+ */
+export function getFirstUnansweredRequiredQuestionId(answers: OnboardingAnswers): QuestionId | null {
+  for (const q of QUESTIONS) {
+    if (q.isRequired) {
+      const val = answers[q.id]
+      const validation = q.validate(val)
+      if (!validation.valid) {
+        return q.id
+      }
+    }
+  }
+  return null
+}
+
+/**
+ * Returns whether every required question has a valid answer.
+ */
+export function areAllRequiredQuestionsAnswered(answers: OnboardingAnswers): boolean {
+  return getFirstUnansweredRequiredQuestionId(answers) === null
+}
+
+/**
+ * Validates and sanitizes stored data safely against corruption, schema drift,
+ * fabricated country codes, or illegitimate completion flags.
  */
 export function validateAndSanitizeStoredState(raw: unknown): StoredOnboardingState {
   if (!raw || typeof raw !== 'object') {
@@ -32,14 +57,14 @@ export function validateAndSanitizeStoredState(raw: unknown): StoredOnboardingSt
 
   const obj = raw as Record<string, unknown>
 
-  // Version check
+  // Version check — reset if schema version does not match
   if (obj.version !== CURRENT_SCHEMA_VERSION) {
     return { ...DEFAULT_INITIAL_STATE }
   }
 
   const answers: OnboardingAnswers = {}
 
-  // Validate relocation_purpose
+  // 1. Validate relocation_purpose
   const validPurposes: RelocationPurpose[] = ['study', 'work', 'family', 'explore']
   if (typeof obj.answers === 'object' && obj.answers !== null) {
     const rawAnswers = obj.answers as Record<string, unknown>
@@ -47,34 +72,63 @@ export function validateAndSanitizeStoredState(raw: unknown): StoredOnboardingSt
       answers.relocation_purpose = rawAnswers.relocation_purpose as RelocationPurpose
     }
 
-    // Validate journey_stage
+    // 2. Validate journey_stage
     const validStages: JourneyStage[] = ['exploring', 'preparing_apps', 'accepted_offer', 'preparing_leave', 'already_abroad']
     if (typeof rawAnswers.journey_stage === 'string' && validStages.includes(rawAnswers.journey_stage as JourneyStage)) {
       answers.journey_stage = rawAnswers.journey_stage as JourneyStage
     }
 
-    // Validate current_country
+    // 3. Validate current_country against canonical dataset
     if (typeof rawAnswers.current_country === 'object' && rawAnswers.current_country !== null) {
-      const c = rawAnswers.current_country as Partial<CountryInfo>
-      if (typeof c.code === 'string' && typeof c.name === 'string' && typeof c.lat === 'number' && typeof c.lon === 'number') {
-        answers.current_country = {
-          code: c.code,
-          name: c.name,
-          lat: c.lat,
-          lon: c.lon,
-          region: typeof c.region === 'string' ? c.region : 'Global'
+      const rawCountry = rawAnswers.current_country as { code?: unknown }
+      if (typeof rawCountry.code === 'string') {
+        const canonical = findCountryByCode(rawCountry.code)
+        if (canonical) {
+          // Restore canonical names, coordinates, and region; do not trust stored copies
+          answers.current_country = {
+            code: canonical.code,
+            name: canonical.name,
+            lat: canonical.lat,
+            lon: canonical.lon,
+            region: canonical.region
+          }
         }
       }
     }
   }
 
-  // Validate currentQuestionId
-  let currentQuestionId: QuestionId = QUESTIONS[0].id
-  if (typeof obj.currentQuestionId === 'string' && QUESTIONS.some(q => q.id === obj.currentQuestionId)) {
-    currentQuestionId = obj.currentQuestionId as QuestionId
-  }
+  // 4. Validate completion flag:
+  // Strict check — treat completion as valid ONLY when every required question is genuinely answered
+  const allAnswered = areAllRequiredQuestionsAnswered(answers)
+  const isCompleted = obj.isCompleted === true && allAnswered
 
-  const isCompleted = Boolean(obj.isCompleted)
+  // 5. Validate navigation state (currentQuestionId):
+  // Prevent users from skipping required questions through malformed stored data
+  const firstUnanswered = getFirstUnansweredRequiredQuestionId(answers)
+  let currentQuestionId: QuestionId = QUESTIONS[0].id
+
+  if (isCompleted) {
+    currentQuestionId = QUESTIONS[QUESTIONS.length - 1].id
+  } else if (firstUnanswered) {
+    // If there is an unanswered required question, ensure user cannot advance past it
+    if (typeof obj.currentQuestionId === 'string' && QUESTIONS.some(q => q.id === obj.currentQuestionId)) {
+      const storedIdx = QUESTIONS.findIndex(q => q.id === obj.currentQuestionId)
+      const unansweredIdx = QUESTIONS.findIndex(q => q.id === firstUnanswered)
+      // If stored question is beyond the first unanswered question, clamp back to firstUnanswered
+      if (storedIdx > unansweredIdx) {
+        currentQuestionId = firstUnanswered
+      } else {
+        currentQuestionId = obj.currentQuestionId as QuestionId
+      }
+    } else {
+      currentQuestionId = firstUnanswered
+    }
+  } else {
+    // All answered but not marked completed yet
+    if (typeof obj.currentQuestionId === 'string' && QUESTIONS.some(q => q.id === obj.currentQuestionId)) {
+      currentQuestionId = obj.currentQuestionId as QuestionId
+    }
+  }
 
   return {
     version: CURRENT_SCHEMA_VERSION,
@@ -141,11 +195,11 @@ export function clearPersistedState(): void {
 export function useOnboardingStore() {
   const [persisted, setPersisted] = useState<StoredOnboardingState>(() => loadPersistedState())
   const [screen, setScreen] = useState<FlowScreen>(() => {
-    // If completed previously, resume at summary; otherwise check if answers exist
+    // If completed previously and all required answers exist, resume at summary
     if (persisted.isCompleted) {
       return { type: 'summary' }
     }
-    // If user has answered at least one question, return to currentQuestionId
+    // If user has answered at least one question, resume at validated question step
     if (Object.keys(persisted.answers).length > 0) {
       return { type: 'question', questionId: persisted.currentQuestionId || QUESTIONS[0].id }
     }

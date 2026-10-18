@@ -15,11 +15,34 @@
   overflow: hidden;
 }
 
+.nativeRadio {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+  opacity: 0;
+}
+
 .card:hover {
   border-color: var(--bn-border-hover);
   box-shadow: var(--bn-shadow-md);
   transform: translateY(-2px);
   background-color: #FFFFFF;
+}
+
+.card:focus-within {
+  outline: 3px solid var(--bn-color-teal-600);
+  outline-offset: 2px;
+}
+
+.disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .selected {

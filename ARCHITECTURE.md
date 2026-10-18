@@ -37,11 +37,17 @@ To update the brand color palette or radii:
 
 All components consume these variables via CSS Modules (`.module.css`), ensuring zero style leakage and consistent styling across screens.
 
+### 3D Theme & Palette Alignment
+Shared 3D brand colors, material parameters, and lighting are centralized in [`src/config/theme3d.ts`](file:///d:/Personal%20project/BeyondNest/src/config/theme3d.ts). This ensures 3D geometry aligns directly with the CSS token color space without fragile ad-hoc hex values across scene components:
+- `THEME_3D.colors`: Oceanic navy, land teal, glow atmosphere, travel pin, and milestone colors.
+- `THEME_3D.lighting`: Key, fill, and rim light configurations.
+- `THEME_3D.materials`: Roughness, metalness, and opacity defaults for physical and standard materials.
+
 ---
 
 ## 2. How to Add or Modify Questions
 
-Questions are declaratively configured in [`src/config/questions.ts`](file:///d:/Personal%20project/BeyondNest/src/config/questions.ts). The application **does not use hardcoded screen indices** or rigid procedural switch statements.
+Questions are declaratively configured in [`src/config/questions.ts`](file:///d:/Personal%20project/BeyondNest/src/config/questions.ts). The application **does not use hardcoded screen indices** or rigid procedural switch statements. Option lookups are resolved by stable question IDs using `getQuestionById(id)` rather than array indices.
 
 To add a new question (e.g. for Milestone 2):
 1. Define the question's stable identifier in `src/store/types.ts`:
@@ -86,18 +92,34 @@ export const SCENE_REGISTRY: Record<string, SceneConfig> = {
 }
 ```
 
-### 3D Coordinate Utilities
-Geographic conversions are completely isolated from WebGL scene rendering in [`src/components/scenes/shared/coordinates.ts`](file:///d:/Personal%20project/BeyondNest/src/components/scenes/shared/coordinates.ts):
-- `latLonToVector3(lat, lon, radius)`: Converts spherical latitude and longitude into 3D Cartesian coordinates (`THREE.Vector3`).
-- `calculateGlobeRotationForLatLon(lat, lon)`: Computes the exact Euler angles needed to rotate a 3D sphere so that the country directly faces the camera at `(0, 0, Z)`.
+### 3D Coordinate Utilities and Camera-Facing Rotation Math
+Geographic conversions are isolated in [`src/components/scenes/shared/coordinates.ts`](file:///d:/Personal%20project/BeyondNest/src/components/scenes/shared/coordinates.ts):
+- `latLonToVector3(lat, lon, radius)`: Converts geographic latitude and longitude into 3D Cartesian coordinates (`THREE.Vector3`) matching Three.js `SphereGeometry` UV mapping.
+- `calculateGlobeTargetQuaternion(lat, lon)`: Computes an exact target rotation quaternion using orthonormal basis inversion. The target location $\hat{P}$ is rotated to `(0, 0, +R)` directly facing the camera at $+Z$, while the North Pole remains upright in $+Y$ with zero sideways roll ($\hat{N}' \cdot \hat{x} \approx 0$).
+- **Co-transformed Geometry and Pins:** In `GlobeMesh.tsx` and `CountryGlobeScene.tsx`, the globe geometry and location pin share the same rotating group transform. Consequently, pins remain rigidly anchored to their geographic coordinates during rotation and smoothly align with the camera using shortest-path quaternion slerp.
 
 ---
 
-## 4. State Management and Schema Versioning
+## 4. Canonical Country Dataset
+
+Country data is bundled locally in [`src/data/countries.ts`](file:///d:/Personal%20project/BeyondNest/src/data/countries.ts):
+- **Coverage:** 202 recognized sovereign countries and territories.
+- **Source:** ISO 3166-1 alpha-2, Natural Earth 1:110m populated places, and UN Geoscheme regional groupings.
+- **Coordinates:** Documented as representative capital/geographic locations, not exact boundaries.
+- **License:** Public Domain / Creative Commons CC0 1.0. No runtime network or external API dependency.
+
+---
+
+## 5. State Management, Validation, and Recovery
 
 State is managed by [`src/store/onboardingStore.ts`](file:///d:/Personal%20project/BeyondNest/src/store/onboardingStore.ts):
 - **Schema Version:** Governed by `CURRENT_SCHEMA_VERSION = 1`.
-- **Validation on Restore:** Data loaded from `localStorage` (`beyondnest_onboarding_v1`) is validated by `validateAndSanitizeStoredState(raw)`. Corrupted payloads, invalid option IDs, or outdated schema versions automatically reset to clean defaults without crashing.
+- **Validation on Restore:** Data loaded from `localStorage` (`beyondnest_onboarding_v1`) is validated by `validateAndSanitizeStoredState(raw)`:
+  - Country codes are validated against the canonical 202-country dataset; unknown or fabricated codes are stripped.
+  - Stored coordinates, names, and regions are restored from the canonical dataset rather than trusting stored copies.
+  - Completion status (`isCompleted`) is valid only when every required question has a valid answer; arbitrary truthy flags are rejected.
+  - Incomplete or malformed states automatically preserve valid answers and resume navigation at the first unanswered required question.
+  - Storage failures (e.g. `QuotaExceededError`) are caught gracefully and remain non-fatal.
 - **Selective Persistence:** Only onboarding responses and navigation progress are persisted locally. Sensitive data or user authentication is not collected in this milestone.
 - **Actions:** Pure, predictable dispatchers: `setAnswer`, `startOnboarding`, `goToNextQuestion`, `goToPreviousQuestion`, `editAnswer`, `resetOnboarding`.
 

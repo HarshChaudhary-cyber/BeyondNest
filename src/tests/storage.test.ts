@@ -81,6 +81,90 @@ describe('Persisted State Recovery and Validation', () => {
     expect(sanitized.answers.current_country).toBeUndefined()
   })
 
+  it('rejects incomplete completed states and resumes at the first unanswered required question', () => {
+    const incompleteCompleted = {
+      version: CURRENT_SCHEMA_VERSION,
+      isCompleted: true,
+      currentQuestionId: 'current_country',
+      answers: {
+        relocation_purpose: 'study'
+        // Missing journey_stage and current_country
+      }
+    }
+
+    const sanitized = validateAndSanitizeStoredState(incompleteCompleted)
+    expect(sanitized.isCompleted).toBe(false)
+    expect(sanitized.currentQuestionId).toBe('journey_stage')
+    expect(sanitized.answers.relocation_purpose).toBe('study')
+  })
+
+  it('rejects fabricated country codes and does not trust arbitrary country data', () => {
+    const fabricated = {
+      version: CURRENT_SCHEMA_VERSION,
+      answers: {
+        relocation_purpose: 'study',
+        journey_stage: 'exploring',
+        current_country: {
+          code: 'XX', // Not a recognized ISO country code
+          name: 'Fabricated Republic',
+          lat: 12.34,
+          lon: 56.78,
+          region: 'Imaginary'
+        }
+      }
+    }
+
+    const sanitized = validateAndSanitizeStoredState(fabricated)
+    expect(sanitized.answers.current_country).toBeUndefined()
+    expect(sanitized.isCompleted).toBe(false)
+    expect(sanitized.currentQuestionId).toBe('current_country')
+  })
+
+  it('restores canonical country coordinates, names, and regions rather than trusting stored values', () => {
+    const tamperedCountry = {
+      version: CURRENT_SCHEMA_VERSION,
+      answers: {
+        current_country: {
+          code: 'JP',
+          name: 'Tampered Name',
+          lat: 9999.0, // Invalid coordinate
+          lon: -9999.0,
+          region: 'Hacked'
+        }
+      }
+    }
+
+    const sanitized = validateAndSanitizeStoredState(tamperedCountry)
+    expect(sanitized.answers.current_country).toBeDefined()
+    expect(sanitized.answers.current_country?.code).toBe('JP')
+    expect(sanitized.answers.current_country?.name).toBe('Japan')
+    expect(sanitized.answers.current_country?.lat).toBe(36.2048)
+    expect(sanitized.answers.current_country?.lon).toBe(138.2529)
+    expect(sanitized.answers.current_country?.region).toBe('Asia')
+  })
+
+  it('keeps storage failures non-fatal when localStorage throws', () => {
+    const originalSetItem = localStorage.setItem
+    try {
+      localStorage.setItem = () => {
+        throw new Error('QuotaExceededError: storage is full')
+      }
+
+      // Should not throw an unhandled error
+      expect(() => {
+        savePersistedState({
+          version: CURRENT_SCHEMA_VERSION,
+          updatedAt: new Date().toISOString(),
+          currentQuestionId: 'relocation_purpose',
+          isCompleted: false,
+          answers: {}
+        })
+      }).not.toThrow()
+    } finally {
+      localStorage.setItem = originalSetItem
+    }
+  })
+
   it('clears persisted state completely on explicit reset', () => {
     savePersistedState({
       version: CURRENT_SCHEMA_VERSION,

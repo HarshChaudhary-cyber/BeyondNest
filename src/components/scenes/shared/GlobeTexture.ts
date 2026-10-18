@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import { THEME_3D } from '../../../config/theme3d'
 
 /**
  * Creates a high-fidelity procedural world map texture for the 3D globe.
@@ -24,14 +25,14 @@ export function getOrCreateGlobeTexture(): THREE.CanvasTexture {
 
   // 1. Ocean Background
   const oceanGrad = ctx.createLinearGradient(0, 0, 0, height)
-  oceanGrad.addColorStop(0, '#0B1329')
-  oceanGrad.addColorStop(0.5, '#0F1E36')
-  oceanGrad.addColorStop(1, '#0B1329')
+  oceanGrad.addColorStop(0, THEME_3D.colors.navyOceanDeep)
+  oceanGrad.addColorStop(0.5, THEME_3D.colors.navyOceanMid)
+  oceanGrad.addColorStop(1, THEME_3D.colors.navyOceanDeep)
   ctx.fillStyle = oceanGrad
   ctx.fillRect(0, 0, width, height)
 
   // 2. Subtle coordinate grid lines
-  ctx.strokeStyle = 'rgba(56, 189, 248, 0.08)'
+  ctx.strokeStyle = THEME_3D.colors.skyGrid
   ctx.lineWidth = 1
 
   // Parallels (latitude)

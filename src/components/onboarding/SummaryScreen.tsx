@@ -14,7 +14,8 @@ import {
 import confetti from 'canvas-confetti'
 import { BRAND } from '../../config/brand'
 import { FEATURE_FLAGS } from '../../config/featureFlags'
-import { QUESTIONS } from '../../config/questions'
+import { getQuestionById } from '../../config/questions'
+import { useReducedMotion } from '../../hooks/useReducedMotion'
 import type { OnboardingAnswers, QuestionId } from '../../store/types'
 import { Button } from '../common/Button/Button'
 import styles from './SummaryScreen.module.css'
@@ -30,7 +31,16 @@ export const SummaryScreen: React.FC<SummaryScreenProps> = ({
   onEditAnswer,
   onStartAgain,
 }) => {
+  const prefersReducedMotion = useReducedMotion()
+
   useEffect(() => {
+    if (prefersReducedMotion) {
+      if (typeof confetti.reset === 'function') {
+        confetti.reset()
+      }
+      return
+    }
+
     if (FEATURE_FLAGS.enableConfettiOnCompletion && typeof window !== 'undefined') {
       try {
         confetti({
@@ -43,11 +53,19 @@ export const SummaryScreen: React.FC<SummaryScreenProps> = ({
         // Safe fallback if canvas is restricted
       }
     }
-  }, [])
 
-  // Resolve Human Labels
-  const purposeOption = QUESTIONS[0]?.options?.find(o => o.id === answers.relocation_purpose)
-  const stageOption = QUESTIONS[1]?.options?.find(o => o.id === answers.journey_stage)
+    return () => {
+      if (typeof confetti.reset === 'function') {
+        confetti.reset()
+      }
+    }
+  }, [prefersReducedMotion])
+
+  // Resolve Human Labels by stable Question IDs (not array positions)
+  const purposeQuestion = getQuestionById('relocation_purpose')
+  const stageQuestion = getQuestionById('journey_stage')
+  const purposeOption = purposeQuestion?.options?.find(o => o.id === answers.relocation_purpose)
+  const stageOption = stageQuestion?.options?.find(o => o.id === answers.journey_stage)
   const country = answers.current_country
 
   const getPurposeIcon = () => {
