@@ -61,14 +61,22 @@
 
 ---
 
-## 3. Limitations & Honest Reporting
+## 3. Remote Publishing & Repository Status
+
+- **Remote URL:** `https://github.com/HarshChaudhary-cyber/BeyondNest.git`
+- **Initial Task 1 Commit:** `d214292a0ddfd9348060d71c48c8032ddd1e6243`
+- **Environment & Secret Protection:** `.gitignore` excludes `node_modules`, `dist`, logs, `.env`, `.env.*`, and local credentials.
+
+---
+
+## 4. Limitations & Honest Reporting
 
 - **Automated Browser Playwright Driver:** During subagent browser execution, the Playwright manager encountered a network 404 while attempting to download the Windows browser driver binary from external CDN endpoints (`playwright.azureedge.net`), which is typical in restricted/offline execution environments.
 - **Verification Countermeasure:** All flows, navigation steps, answer validation edge cases, corrupted storage recovery, and UI states were exhaustively verified via automated Vitest and React Testing Library suites, along with clean production builds.
 
 ---
 
-## 4. Recommended Task 2 (Next Milestone)
+## 5. Recommended Task 2 (Next Milestone)
 
 For Milestone 2, we recommend building:
 1. **Citizenship & Passport Input:** Multi-select for passports held to compute visa waiver eligibility.
