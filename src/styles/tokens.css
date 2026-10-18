@@ -1,0 +1,110 @@
+/**
+ * BeyondNest Design Tokens
+ * Visual direction: Warm white backgrounds, sky-blue atmosphere, deep navy text, teal accents.
+ * Soft lighting, gentle shadows, rounded materials, and restrained travel details.
+ */
+
+:root {
+  /* Brand Palettes */
+  --bn-color-navy-950: #090E17;
+  --bn-color-navy-900: #0F172A;
+  --bn-color-navy-800: #1E293B;
+  --bn-color-navy-700: #334155;
+  --bn-color-navy-600: #475569;
+  --bn-color-navy-500: #64748B;
+  --bn-color-navy-400: #94A3B8;
+  --bn-color-navy-200: #E2E8F0;
+  --bn-color-navy-100: #F1F5F9;
+
+  --bn-color-teal-900: #134E4A;
+  --bn-color-teal-800: #115E59;
+  --bn-color-teal-700: #0F766E;
+  --bn-color-teal-600: #0D9488;
+  --bn-color-teal-500: #14B8A6;
+  --bn-color-teal-400: #2DD4BF;
+  --bn-color-teal-200: #99F6E4;
+  --bn-color-teal-100: #CCFBF1;
+  --bn-color-teal-50:  #F0FDFA;
+
+  --bn-color-sky-900: #0C4A6E;
+  --bn-color-sky-700: #0369A1;
+  --bn-color-sky-500: #0EA5E9;
+  --bn-color-sky-400: #38BDF8;
+  --bn-color-sky-200: #BAE6FD;
+  --bn-color-sky-100: #E0F2FE;
+  --bn-color-sky-50:  #F0F9FF;
+
+  --bn-color-sand-700: #B45309;
+  --bn-color-sand-500: #F59E0B;
+  --bn-color-sand-200: #FDE68A;
+  --bn-color-sand-100: #FEF3C7;
+  --bn-color-sand-50:  #FFFBEB;
+
+  --bn-color-coral-600: #E11D48;
+  --bn-color-coral-500: #F43F5E;
+  --bn-color-coral-100: #FFE4E6;
+
+  /* Surfaces & Backgrounds */
+  --bn-bg-base: #FAF9F5;
+  --bn-bg-surface: #FFFFFF;
+  --bn-bg-subtle: #F4F6F8;
+  --bn-bg-muted: #EBF1F5;
+  --bn-bg-overlay: rgba(15, 23, 42, 0.45);
+  --bn-bg-glass: rgba(255, 255, 255, 0.85);
+  --bn-bg-glass-card: rgba(255, 255, 255, 0.92);
+
+  /* Typography Colors */
+  --bn-text-primary: var(--bn-color-navy-900);
+  --bn-text-secondary: var(--bn-color-navy-700);
+  --bn-text-muted: var(--bn-color-navy-500);
+  --bn-text-inverse: #FFFFFF;
+  --bn-text-accent: var(--bn-color-teal-700);
+
+  /* Borders & Outlines */
+  --bn-border-light: rgba(15, 23, 42, 0.08);
+  --bn-border-medium: rgba(15, 23, 42, 0.14);
+  --bn-border-hover: rgba(13, 148, 136, 0.4);
+  --bn-border-active: var(--bn-color-teal-600);
+  --bn-border-focus: var(--bn-color-teal-600);
+  --bn-ring-focus: rgba(13, 148, 136, 0.25);
+
+  /* Elevation & Shadows */
+  --bn-shadow-xs: 0 1px 2px rgba(15, 23, 42, 0.05);
+  --bn-shadow-sm: 0 2px 6px rgba(15, 23, 42, 0.06), 0 1px 2px rgba(15, 23, 42, 0.04);
+  --bn-shadow-md: 0 6px 16px rgba(15, 23, 42, 0.08), 0 2px 4px rgba(15, 23, 42, 0.04);
+  --bn-shadow-lg: 0 12px 32px rgba(15, 23, 42, 0.10), 0 4px 8px rgba(15, 23, 42, 0.05);
+  --bn-shadow-float: 0 20px 40px -10px rgba(13, 148, 136, 0.15), 0 12px 24px -5px rgba(15, 23, 42, 0.08);
+  --bn-shadow-card-selected: 0 0 0 2px var(--bn-color-teal-600), 0 10px 24px -4px rgba(13, 148, 136, 0.2);
+
+  /* Radii */
+  --bn-radius-sm: 8px;
+  --bn-radius-md: 14px;
+  --bn-radius-lg: 20px;
+  --bn-radius-xl: 28px;
+  --bn-radius-full: 9999px;
+
+  /* Typography */
+  --bn-font-sans: 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --bn-font-display: 'Outfit', 'Plus Jakarta Sans', system-ui, sans-serif;
+
+  /* Transitions */
+  --bn-transition-fast: 150ms cubic-bezier(0.16, 1, 0.3, 1);
+  --bn-transition-normal: 250ms cubic-bezier(0.16, 1, 0.3, 1);
+  --bn-transition-bounce: 400ms cubic-bezier(0.34, 1.56, 0.64, 1);
+
+  /* Spacing */
+  --bn-space-1: 4px;
+  --bn-space-2: 8px;
+  --bn-space-3: 12px;
+  --bn-space-4: 16px;
+  --bn-space-5: 20px;
+  --bn-space-6: 24px;
+  --bn-space-8: 32px;
+  --bn-space-10: 40px;
+  --bn-space-12: 48px;
+  --bn-space-16: 64px;
+
+  /* Layout */
+  --bn-max-width-content: 1180px;
+  --bn-header-height: 72px;
+}

@@ -1,0 +1,133 @@
+.wrapper {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  max-width: var(--bn-max-width-content);
+  margin: 0 auto;
+  padding: var(--bn-space-8) var(--bn-space-6);
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: 1fr 1.15fr;
+  align-items: center;
+  gap: var(--bn-space-12);
+  width: 100%;
+}
+
+.content {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bn-space-6);
+  z-index: 2;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  width: fit-content;
+  padding: 6px 14px;
+  border-radius: var(--bn-radius-full);
+  background-color: var(--bn-color-teal-50);
+  border: 1px solid var(--bn-color-teal-200);
+  color: var(--bn-color-teal-800);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.badgeDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: var(--bn-color-teal-600);
+}
+
+.headline {
+  font-size: 44px;
+  font-weight: 800;
+  line-height: 1.15;
+  color: var(--bn-text-primary);
+  letter-spacing: -0.03em;
+}
+
+.headlineGradient {
+  background: linear-gradient(135deg, var(--bn-color-navy-900) 0%, var(--bn-color-teal-700) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.supportingText {
+  font-size: 19px;
+  line-height: 1.6;
+  color: var(--bn-text-secondary);
+  max-width: 480px;
+}
+
+.actions {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: var(--bn-space-2);
+}
+
+.buttonWrapper {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.secondaryNote {
+  font-size: 13px;
+  color: var(--bn-text-muted);
+}
+
+.featureList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-top: var(--bn-space-4);
+  padding-top: var(--bn-space-6);
+  border-top: 1px dashed var(--bn-border-medium);
+}
+
+.featureItem {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--bn-text-secondary);
+}
+
+.sceneArea {
+  position: relative;
+  width: 100%;
+  height: 480px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+@media (max-width: 900px) {
+  .grid {
+    grid-template-columns: 1fr;
+    gap: var(--bn-space-6);
+  }
+
+  .sceneArea {
+    order: -1;
+    height: 320px;
+  }
+
+  .headline {
+    font-size: 32px;
+  }
+
+  .supportingText {
+    font-size: 17px;
+  }
+}

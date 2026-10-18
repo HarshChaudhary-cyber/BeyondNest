@@ -1,0 +1,192 @@
+.wrapper {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  max-width: 860px;
+  margin: 0 auto;
+  padding: var(--bn-space-8) var(--bn-space-6);
+}
+
+.card {
+  width: 100%;
+  background-color: var(--bn-bg-surface);
+  border-radius: var(--bn-radius-xl);
+  border: 1px solid var(--bn-border-medium);
+  box-shadow: var(--bn-shadow-lg);
+  padding: var(--bn-space-8);
+  display: flex;
+  flex-direction: column;
+  gap: var(--bn-space-6);
+  position: relative;
+  overflow: hidden;
+}
+
+/* Restrained Luggage Tag Accent Header */
+.luggageTagTop {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 2px dashed var(--bn-border-medium);
+  padding-bottom: var(--bn-space-4);
+}
+
+.luggageEyelet {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background-color: var(--bn-bg-base);
+  border: 3px solid var(--bn-color-teal-600);
+}
+
+.milestoneBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background-color: var(--bn-color-teal-50);
+  border: 1px solid var(--bn-color-teal-200);
+  color: var(--bn-color-teal-800);
+  font-size: 13px;
+  font-weight: 700;
+  padding: 4px 12px;
+  border-radius: var(--bn-radius-full);
+}
+
+.headerText {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.headline {
+  font-size: 36px;
+  font-weight: 800;
+  color: var(--bn-text-primary);
+  letter-spacing: -0.02em;
+}
+
+.supportingText {
+  font-size: 16px;
+  line-height: 1.6;
+  color: var(--bn-text-secondary);
+}
+
+/* Answers Summary Grid */
+.summaryList {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.summaryItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-radius: var(--bn-radius-lg);
+  background-color: var(--bn-bg-subtle);
+  border: 1px solid var(--bn-border-light);
+  transition: all var(--bn-transition-fast);
+}
+
+.summaryItem:hover {
+  background-color: #FFFFFF;
+  border-color: var(--bn-border-hover);
+  box-shadow: var(--bn-shadow-sm);
+}
+
+.itemLeft {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.itemIcon {
+  width: 44px;
+  height: 44px;
+  border-radius: var(--bn-radius-md);
+  background-color: var(--bn-color-teal-50);
+  border: 1px solid var(--bn-color-teal-200);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--bn-color-teal-700);
+}
+
+.itemDetails {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.itemCategory {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--bn-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.itemValue {
+  font-family: var(--bn-font-display);
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--bn-text-primary);
+}
+
+/* Extension Note */
+.roadmapBox {
+  padding: 16px 20px;
+  border-radius: var(--bn-radius-lg);
+  background: linear-gradient(135deg, rgba(224, 242, 254, 0.4), rgba(204, 251, 241, 0.4));
+  border: 1px solid rgba(13, 148, 136, 0.2);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.roadmapTitle {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--bn-color-navy-900);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.roadmapDesc {
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--bn-text-secondary);
+}
+
+/* Action Buttons */
+.actionsRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: var(--bn-space-2);
+  padding-top: var(--bn-space-4);
+  border-top: 1px solid var(--bn-border-light);
+}
+
+@media (max-width: 640px) {
+  .card {
+    padding: var(--bn-space-5);
+  }
+
+  .headline {
+    font-size: 26px;
+  }
+
+  .actionsRow {
+    flex-direction: column;
+  }
+
+  .actionsRow button {
+    width: 100%;
+  }
+}

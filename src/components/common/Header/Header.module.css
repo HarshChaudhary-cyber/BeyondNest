@@ -1,0 +1,86 @@
+.header {
+  width: 100%;
+  height: var(--bn-header-height);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 var(--bn-space-6);
+  border-bottom: 1px solid var(--bn-border-light);
+  background-color: var(--bn-bg-glass);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+.brandLink {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  cursor: pointer;
+  outline-offset: 4px;
+}
+
+.logoIcon {
+  width: 38px;
+  height: 38px;
+  border-radius: var(--bn-radius-md);
+  background: linear-gradient(135deg, var(--bn-color-teal-600), var(--bn-color-navy-900));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #FFFFFF;
+  box-shadow: 0 4px 10px rgba(13, 148, 136, 0.25);
+}
+
+.brandText {
+  display: flex;
+  flex-direction: column;
+}
+
+.brandName {
+  font-family: var(--bn-font-display);
+  font-size: 20px;
+  font-weight: 800;
+  color: var(--bn-text-primary);
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+}
+
+.tagline {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--bn-color-teal-700);
+  letter-spacing: 0.02em;
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.milestonePill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  border-radius: var(--bn-radius-full);
+  background-color: var(--bn-color-teal-50);
+  border: 1px dashed var(--bn-color-teal-600);
+  color: var(--bn-color-teal-800);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+@media (max-width: 640px) {
+  .header {
+    padding: 0 var(--bn-space-4);
+  }
+
+  .tagline {
+    display: none;
+  }
+}
