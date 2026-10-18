@@ -1,4 +1,4 @@
-import React, { type ChangeEvent, type KeyboardEvent } from 'react'
+import React, { type ChangeEvent } from 'react'
 import styles from './Card.module.css'
 
 export interface CardProps {
@@ -25,24 +25,10 @@ export const Card: React.FC<CardProps> = ({
   const inputId = `card-input-${id}`
   const descId = description ? `card-desc-${id}` : undefined
 
-  const handleClick = () => {
-    if (!disabled) {
+  // Native radio semantics: single callback on genuine change
+  const handleChange = (e: ChangeEvent<HTMLInputElement>) => {
+    if (!disabled && e.target.checked && !selected) {
       onClick()
-    }
-  }
-
-  const handleChange = (_e: ChangeEvent<HTMLInputElement>) => {
-    if (!disabled) {
-      onClick()
-    }
-  }
-
-  const handleKeyDown = (e: KeyboardEvent<HTMLLabelElement>) => {
-    if (e.key === ' ' || e.key === 'Enter') {
-      e.preventDefault()
-      if (!disabled) {
-        onClick()
-      }
     }
   }
 
@@ -51,8 +37,6 @@ export const Card: React.FC<CardProps> = ({
       htmlFor={inputId}
       id={`card-${id}`}
       className={`${styles.card} ${selected ? styles.selected : ''} ${disabled ? styles.disabled : ''}`}
-      onKeyDown={handleKeyDown}
-      onClick={handleClick}
     >
       <input
         type="radio"
@@ -62,7 +46,6 @@ export const Card: React.FC<CardProps> = ({
         checked={selected}
         aria-checked={selected}
         onChange={handleChange}
-        onClick={handleClick}
         disabled={disabled}
         aria-describedby={descId}
         className={styles.nativeRadio}

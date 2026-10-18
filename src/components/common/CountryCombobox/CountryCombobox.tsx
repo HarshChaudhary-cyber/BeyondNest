@@ -26,6 +26,7 @@ export const CountryCombobox: React.FC<CountryComboboxProps> = ({
   const wrapperRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const listboxRef = useRef<HTMLUListElement>(null)
+  const isInteractingWithListboxRef = useRef(false)
   const comboboxId = useId()
   const listboxId = `country-listbox-${comboboxId}`
   const errorId = error ? `country-error-${comboboxId}` : undefined
@@ -41,16 +42,29 @@ export const CountryCombobox: React.FC<CountryComboboxProps> = ({
       }
     }
 
+    const handleGlobalPointerUp = () => {
+      isInteractingWithListboxRef.current = false
+    }
+
     document.addEventListener('mousedown', handlePointerDownOutside)
     document.addEventListener('touchstart', handlePointerDownOutside)
+    document.addEventListener('pointerup', handleGlobalPointerUp)
+    document.addEventListener('mouseup', handleGlobalPointerUp)
+    document.addEventListener('touchend', handleGlobalPointerUp)
     return () => {
       document.removeEventListener('mousedown', handlePointerDownOutside)
       document.removeEventListener('touchstart', handlePointerDownOutside)
+      document.removeEventListener('pointerup', handleGlobalPointerUp)
+      document.removeEventListener('mouseup', handleGlobalPointerUp)
+      document.removeEventListener('touchend', handleGlobalPointerUp)
     }
   }, [])
 
-  // Close combobox when focus leaves the component container
+  // Close combobox when focus leaves the component container, guarding against option click race
   const handleContainerBlur = (e: FocusEvent<HTMLDivElement>) => {
+    if (isInteractingWithListboxRef.current) {
+      return
+    }
     if (!wrapperRef.current?.contains(e.relatedTarget as Node)) {
       setIsOpen(false)
       setHighlightedIndex(-1)
@@ -178,6 +192,10 @@ export const CountryCombobox: React.FC<CountryComboboxProps> = ({
             setIsOpen(true)
             setHighlightedIndex(filteredCountries.length > 0 ? 0 : -1)
           }}
+          onClick={() => {
+            setIsOpen(true)
+            setHighlightedIndex(filteredCountries.length > 0 ? 0 : -1)
+          }}
           onKeyDown={handleKeyDown}
           disabled={disabled}
         />
@@ -230,7 +248,18 @@ export const CountryCombobox: React.FC<CountryComboboxProps> = ({
                   className={`${styles.option} ${isHighlighted ? styles.optionHighlighted : ''} ${
                     isSelected ? styles.optionSelected : ''
                   }`}
-                  onClick={() => handleSelect(c)}
+                  onPointerDown={(e) => {
+                    e.preventDefault()
+                    isInteractingWithListboxRef.current = true
+                  }}
+                  onMouseDown={(e) => {
+                    e.preventDefault()
+                    isInteractingWithListboxRef.current = true
+                  }}
+                  onClick={() => {
+                    isInteractingWithListboxRef.current = false
+                    handleSelect(c)
+                  }}
                   onMouseEnter={() => setHighlightedIndex(index)}
                 >
                   <div className={styles.countryInfo}>

@@ -21,7 +21,30 @@ const getConfettiResetMock = () => {
 describe('Keyboard Accessibility and ARIA Semantics', () => {
   it('renders Card with accessible native radio input semantics and visible labels', () => {
     const handleClick = vi.fn()
-    render(
+    const { rerender } = render(
+      <Card
+        id="study"
+        name="test-question"
+        label="Study"
+        description="Higher education and student exchange"
+        badge="Education"
+        selected={false}
+        onClick={handleClick}
+      />
+    )
+
+    const radioInput = screen.getByRole('radio', { name: /Study/i })
+    expect(radioInput).toBeInTheDocument()
+    expect(radioInput).not.toBeChecked()
+    expect(radioInput).toHaveAttribute('aria-checked', 'false')
+    expect(radioInput).toHaveAttribute('name', 'test-question')
+
+    // Clicking unselected radio input triggers selection callback
+    fireEvent.click(radioInput)
+    expect(handleClick).toHaveBeenCalledTimes(1)
+
+    // When already selected, subsequent clicks do not dispatch duplicate changes
+    rerender(
       <Card
         id="study"
         name="test-question"
@@ -32,16 +55,10 @@ describe('Keyboard Accessibility and ARIA Semantics', () => {
         onClick={handleClick}
       />
     )
-
-    const radioInput = screen.getByRole('radio', { name: /Study/i })
-    expect(radioInput).toBeInTheDocument()
     expect(radioInput).toBeChecked()
     expect(radioInput).toHaveAttribute('aria-checked', 'true')
-    expect(radioInput).toHaveAttribute('name', 'test-question')
-
-    // Clicking the card or input triggers selection
     fireEvent.click(radioInput)
-    expect(handleClick).toHaveBeenCalled()
+    expect(handleClick).toHaveBeenCalledTimes(1) // Still 1
   })
 
   it('supports Arrow key navigation across single_choice options in QuestionScreen', () => {

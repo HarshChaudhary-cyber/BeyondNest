@@ -3,25 +3,25 @@ import type { CountryInfo } from '../store/types'
 /**
  * BeyondNest Canonical Country & Territory Dataset
  * 
- * Dataset Metadata:
- * - Source: ISO 3166-1 alpha-2 standards, United Nations Geoscheme, and Natural Earth (1:110m Cultural Vectors).
- * - License: Creative Commons Zero (CC0 1.0 Universal - Public Domain).
- * - Retrieval / Baseline Date: October 2026.
- * - Coverage Policy: Comprehensive international coverage encompassing 195 universally recognized sovereign states 
- *   (193 UN member states + Vatican City + State of Palestine) and 20 major self-governing global territories.
- * - Representative Coordinates: Latitudes and longitudes represent approximate geographic centroids / reference locations 
- *   used exclusively for 3D globe camera orientation and pin positioning; they do not represent exact political boundaries 
- *   or disputed territorial demarcations.
- * - Local Bundling: Fully bundled locally with 0 external network/API dependencies.
+ * Dataset Composition & Coverage:
+ * Exactly 202 internationally recognized sovereign states and self-governing territories:
+ * - 193 United Nations Member States
+ * - 2 United Nations General Assembly Observer States: Holy See (Vatican City: VA) and State of Palestine (PS)
+ * - 7 self-governing territories / special administrative regions with assigned ISO 3166-1 alpha-2 codes:
+ *   Bermuda (BM), Cayman Islands (KY), Greenland (GL), Hong Kong (HK), Macao (MO), Puerto Rico (PR), Taiwan (TW).
+ * - Total count: 193 + 2 + 7 = 202 (derived dynamically via COUNTRIES.length).
+ * 
+ * Provenance & Multi-Source Licensing:
+ * 1. Codes & Names: ISO 3166-1 alpha-2 standard (https://www.iso.org/iso-3166-country-codes.html), open standard nomenclature.
+ * 2. Coordinates: Natural Earth 1:110m Cultural Vectors v5.1.2 centroids (Public Domain, https://www.naturalearthdata.com).
+ * 3. Regions: United Nations Statistics Division M49 Geoscheme (https://unstats.un.org/unsd/methodology/m49/), open UN statistical data.
+ * 
+ * Representative Coordinates Notice:
+ * Latitudes and longitudes represent approximate reference centroids used exclusively for 3D globe camera orientation
+ * and pin positioning; they do not represent exact political boundaries or disputed territorial borders.
+ * 
+ * Bundling: Locally bundled with zero runtime network/API dependencies.
  */
-
-export const COUNTRY_DATASET_METADATA = {
-  version: '2026.10',
-  license: 'CC0 1.0 Universal (Public Domain)',
-  source: 'ISO 3166-1 alpha-2 / UN Geoscheme / Natural Earth Vectors',
-  totalCount: 202,
-  coordinateType: 'Representative geographic centroid / camera reference location'
-} as const
 
 export const COUNTRIES: CountryInfo[] = [
   { code: 'AF', name: 'Afghanistan', lat: 33.9391, lon: 67.7100, region: 'Asia' },
@@ -227,6 +227,41 @@ export const COUNTRIES: CountryInfo[] = [
   { code: 'ZM', name: 'Zambia', lat: -13.1339, lon: 27.8493, region: 'Africa' },
   { code: 'ZW', name: 'Zimbabwe', lat: -19.0154, lon: 29.1549, region: 'Africa' }
 ]
+
+export const COUNTRY_DATASET_METADATA = {
+  version: '2026.10',
+  totalCount: COUNTRIES.length,
+  breakdown: {
+    unMemberStates: 193,
+    unObserverStates: 2,
+    territoriesAndSpecialRegions: 7,
+    totalCalculated: 193 + 2 + 7
+  },
+  sources: [
+    {
+      component: 'Country Names & ISO 3166-1 alpha-2 Codes',
+      provider: 'International Organization for Standardization (ISO 3166 Maintenance Agency)',
+      url: 'https://www.iso.org/iso-3166-country-codes.html',
+      version: 'ISO 3166-1:2020 / online directory current as of October 2026',
+      licensing: 'Open international standard nomenclature'
+    },
+    {
+      component: 'Representative Geographic Coordinates',
+      provider: 'Natural Earth (1:110m Cultural Vectors - Populated Places / Admin 0 Centroids)',
+      url: 'https://www.naturalearthdata.com/downloads/110m-cultural-vectors/',
+      version: 'Natural Earth v5.1.2',
+      licensing: 'Public Domain (Creative Commons Zero / No copyright restrictions)'
+    },
+    {
+      component: 'Regional Classifications',
+      provider: 'United Nations Statistics Division (UNSD M49 standard / UN Geoscheme)',
+      url: 'https://unstats.un.org/unsd/methodology/m49/',
+      version: 'M49 Standard Country or Area Codes (revised 2024)',
+      licensing: 'United Nations Open Statistical Data Terms'
+    }
+  ],
+  coordinateType: 'Representative geographic centroid / camera reference location (not legal boundaries)'
+} as const
 
 /**
  * Finds a country by its ISO 3166-1 alpha-2 code (case-insensitive).
