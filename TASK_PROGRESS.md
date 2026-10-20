@@ -134,26 +134,99 @@
 
 ---
 
-## 4. Validation Performed
+## 4. Task 2: Complete the Adaptive 3D Onboarding
+
+### Features Implemented
+
+1. **Adaptive Question Engine & Dynamic Conditionality:**
+   - Extended the typed question registry (`src/config/questions.ts`) to support all 19 onboarding questions.
+   - Replaced static step indices with dynamic progress calculation (`Step X of Y`) reflecting only currently applicable questions for the user's specific path.
+   - Dynamic copy resolvers adapt question titles, subtitles, and options based on user journey state (e.g. *"Where would you like to move?"* vs *"Which country did you move to?"* and *"When are you planning to move?"* vs *"When did you arrive?"* for `already_abroad` movers).
+   - Upstream dependency invalidation automatically clears invalidated downstream answers (e.g. changing destination resets city and exploration priorities; changing purpose resets study or work branch selections).
+
+2. **Dedicated Citizenship & Passport Model:**
+   - Bundled sovereign citizenship data in `src/data/citizenships.ts` (198 sovereign states and international travel document authorities like Hong Kong SAR and Taiwan).
+   - Distinguishes sovereign citizenship from territorial residence (e.g. overseas territories map to their sovereign state).
+   - Accessible searchable multi-selection with "Skip for now" toggle explaining official entry guidance relevance.
+   - 3D Scene: Golden emblem passport beside an illuminated rotating globe (`CitizenshipScene.tsx`) with vector fallback.
+
+3. **Destination Exploration & Priorities:**
+   - Supports selecting a destination country or choosing "Help me explore destinations".
+   - Exploring movers receive the "What matters most when choosing a destination?" multi-select question (study, work, living costs, language, family, lifestyle).
+   - For already-abroad movers, offers an optional "Where did you move from?" origin question (`origin_country_abroad`).
+   - 3D Scene: Two-pin origin/destination globe with animated geodesic flight arc when both countries are known (`DestinationGlobeScene.tsx`), and interactive 3D compass with orbiting priority badges (`PrioritiesCompassScene.tsx`).
+
+4. **City Selection:**
+   - Shown conditionally when a destination country is selected.
+   - Clean free-text input with "Not decided yet" toggle without fake autocomplete. Adapts label for already-abroad movers: *"Which city do you live in?"*.
+   - 3D Scene: Isometric miniature city skyline with dynamic location marker pin (`CityScene.tsx`).
+
+5. **Date Validation with Local Calendar Integrity:**
+   - Month and year selection (`DateSelect.tsx`) with "Not sure yet" / "Prefer not to say".
+   - Validates that future move dates cannot be in the past, and arrival dates for already-abroad movers cannot be in the future, while allowing the current month.
+   - 3D Scene: 3D desktop calendar and retro travel suitcase (`CalendarSuitcaseScene.tsx`).
+
+6. **Duration, Travel Style & Backpacking Route:**
+   - Stay duration picker (under 6 months, 6–12 months, 1–2 years, >2 years, not sure yet) paired with timeline scene (`TimelineScene.tsx`).
+   - Travel style question (Backpacking, Moving to one place, Mix of both, Not sure yet) with dynamic 3D backpack and rolling suitcase scene (`TravelStyleScene.tsx`).
+   - Backpacking movers receive the backpacking destinations multi-select question with "Help me plan my route". Order of selection is preserved as a tentative user-defined route without claiming automated route optimization.
+   - 3D Scene: Globe displaying interconnected sequential route pins and arcs (`BackpackingGlobeScene.tsx`).
+
+7. **Companions & Budget:**
+   - Companions question (Just me, Partner, Family, Friends) paired with stylized low-poly traveler figures (`CompanionsScene.tsx`).
+   - Monthly living budget input (`BudgetInput.tsx`) with currency selector (USD, EUR, GBP, CAD, AUD, JPY, INR, CHF, etc.), positive amount validation, "Help me estimate" toggle, and clear exclusion of tuition fees and moving costs.
+   - 3D Scene: Embossed 3D leather wallet with floating currency icons (`BudgetWalletScene.tsx`).
+
+8. **Conditional Student & Work Branches:**
+   - **Student Branch:** "What level will you study?" (Language, Bachelor's, Master's, Doctorate, Exchange, Other, Not sure) and optional "Which university will you attend?" free text. Paired with 3D campus building and graduation mortarboard (`CampusScene.tsx`).
+   - **Work Branch:** "Do you already have a job offer?" (Yes, Interviewing, Not yet, N/A) for planning movers; dynamically adapts to "What is your current work situation?" (Employed, Starting confirmed role, Looking for work, Other) for already-abroad movers. Paired with 3D briefcase and desk workspace scene (`WorkspaceScene.tsx`).
+
+9. **Preparation Status & Help Priorities:**
+   - "What have you already arranged?" dynamically surfaces relevant options (admission, job offer, visa/residence permission, housing, insurance, travel booking, or "Nothing yet").
+   - "Nothing yet" is strictly mutually exclusive with other selections.
+   - 3D Scene: Open travel suitcase with packing checklist items falling in (`PackingSuitcaseScene.tsx`).
+   - "What would you like help with first?" (Paperwork, Housing, Budget, Language, Meeting people, Understanding whole process) with miniature neighbourhood scene (`NeighbourhoodPrioritiesScene.tsx`).
+
+10. **Editable Review Screen ("Your next chapter is taking shape"):**
+    - Replaced the preview summary with a comprehensive review dashboard organized into 3 logical sections:
+      1. *Your journey* (purpose, stage, origin, date, duration, companions)
+      2. *Destination and travel style* (citizenship, destination, city, backpacking route, travel style, budget, student/work branch)
+      3. *Preparation and priorities* (arrangements completed, priority help areas)
+    - **Inline Edit Actions:** Clicking "Edit" navigates directly to the target question.
+    - **Guided Return Navigation:** If an edit alters the user's branch (e.g. switching purpose to Study), the engine guides the user through the newly required unanswered questions before returning to review.
+    - **Honest Local Saving Status:** Real-time indicator displaying "Saved to browser" or warning banner on local storage quota failures.
+    - **Start Again Confirmation:** Accessible modal dialog requiring explicit confirmation before clearing responses.
+    - **No Fabricated Planning:** Clearly states that source-backed personalised roadmaps arrive in the next milestone, without nonfunctional generation buttons.
+
+11. **Schema v2 Persistence & Version-1 Migration:**
+    - Incremented schema to `CURRENT_SCHEMA_VERSION = 2` under storage key `beyondnest_onboarding_v2`.
+    - Automatically migrates existing version-1 storage payloads: preserves valid v1 answers (`relocation_purpose`, `journey_stage`, `current_country`), resets `isCompleted` to `false`, and resumes at `citizenship`.
+    - Catches all storage exceptions gracefully.
+
+---
+
+## 5. Validation Matrix
 
 | Check | Tool / Command | Result | Notes |
 |---|---|---|---|
-| **TypeScript Typecheck** | `npm run typecheck` (`tsc -b`) | **PASS** | 0 type errors across all application and test files. |
-| **Linting** | `npm run lint` (`oxlint`) | **PASS** | 0 errors, 0 warnings across all 46 files. |
-| **Unit & Integration Tests** | `npm test` (`vitest run`) | **PASS** | **40 passed tests across 6 suites** (`navigation`, `validation`, `storage`, `globeCoordinates`, `accessibility`, `realisticInteractions`). |
-| **Production Build** | `npm run build` | **PASS** | Successfully built production bundle in 897ms. |
+| **TypeScript Typecheck** | `npm run typecheck` (`tsc -b`) | **PASS** | 0 type errors across all code, components, and test files. |
+| **Linting** | `npm run lint` (`oxlint`) | **PASS** | 0 errors, 0 warnings across 71 files. |
+| **Unit & Integration Tests** | `npm test` (`vitest run`) | **PASS** | **66 passed tests across 7 test suites** (includes 26 comprehensive tests in `adaptiveOnboarding.test.tsx`). |
+| **Production Build** | `npm run build` (`vite build`) | **PASS** | Built in 965ms with clean chunk splitting and gzip compression. |
 | **Dev Server Execution** | `npm run dev` | **PASS** | Running smoothly on `http://localhost:5173/`. |
 
 ---
 
-## 5. Limitations & Honest Reporting
+## 6. Limitations & Honest Reporting
 
-- **Automated Browser Playwright Driver:** Automated browser subagent driver download remains unavailable in this container environment due to external CDN 404 responses (`playwright.azureedge.net`).
-- **Honest Boundary on Rendered WebGL Quality:** We do **not** claim that DOM and user-event tests prove physical WebGL canvas pixel quality or GPU rendering. However, DOM accessibility, interaction event order, race-free blur dismissal, single-callback semantics, 3D coordinate mathematics, and camera-facing quaternion transformations are exhaustively verified and proven via automated test suites.
+- **Automated Browser Subagent Driver Boundary:** Automated Playwright browser downloading continues to be blocked by an external CDN 404 response (`playwright.azureedge.net`) in this environment.
+- **Physical WebGL GPU Pixel Boundary:** Automated tests verify DOM accessibility, ARIA compliance, user-event interaction order, blur dismissal guards, storage migration, and 3D coordinate mathematics. They do not prove GPU pixel output or hardware shader compilation on all physical devices.
+- **Recommendations Deferred:** No automated recommendation calculations, visa eligibility rules, or live web APIs are implemented in this milestone, in strict accordance with the task specification.
 
 ---
 
-## 6. Ready for Task 2
+## 7. Recommended Next Milestone
 
-- **Status:** **APPROVED / READY TO PROCEED**
-- Task 1.1 and Task 1.2 corrections are fully implemented, verified, passing 40 tests, and committed. Milestone 2 can now proceed when instructed.
+- **Milestone 3: Source-Backed Personalised Planning Engine**
+  - Implement country-specific requirements, visa timelines, housing checklists, and cost-of-living models backed by authoritative, curated government and institutional sources.
+

@@ -18,6 +18,7 @@ export const THEME_3D = {
     navy100: '#F1F5F9',
 
     // Sea Teal Accents
+    seaTeal: '#0D9488',
     tealLand: '#0D9488',
     tealLandHighlight: '#14B8A6',
     tealLandStroke: '#2DD4BF',
@@ -38,6 +39,7 @@ export const THEME_3D = {
     cream: '#FFFBEB',
 
     // Amber / Leather / Compass Accents
+    warmAmber: '#F59E0B',
     amberGold: '#F59E0B',
     amberDark: '#B45309',
     amberDeep: '#78350F',

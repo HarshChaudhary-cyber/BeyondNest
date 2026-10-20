@@ -1,11 +1,24 @@
 import React, { useEffect, useRef } from 'react'
 import { ArrowLeft, ArrowRight, AlertCircle } from 'lucide-react'
 import { BRAND } from '../../config/brand'
-import type { QuestionDefinition, OnboardingAnswers, CountryInfo } from '../../store/types'
+import type { QuestionDefinition, OnboardingAnswers, CountryInfo, QuestionOption } from '../../store/types'
+import { 
+  resolveQuestionTitle, 
+  resolveQuestionSubtitle, 
+  resolveQuestionOptions 
+} from '../../config/questions'
 import { Card } from '../common/Card/Card'
 import { Button } from '../common/Button/Button'
 import { ProgressBar } from '../common/ProgressBar/ProgressBar'
 import { CountryCombobox } from '../common/CountryCombobox/CountryCombobox'
+import { MultiCard } from './inputs/MultiCard'
+import { CitizenshipSelect } from './inputs/CitizenshipSelect'
+import { DestinationSelect } from './inputs/DestinationSelect'
+import { CityInput } from './inputs/CityInput'
+import { DateSelect } from './inputs/DateSelect'
+import { BackpackingSelect } from './inputs/BackpackingSelect'
+import { BudgetInput } from './inputs/BudgetInput'
+import { UniversityInput } from './inputs/UniversityInput'
 import { CanvasContainer } from '../scenes/CanvasContainer'
 import { getSceneConfig } from '../scenes/SceneRegistry'
 import styles from './QuestionScreen.module.css'
@@ -35,14 +48,17 @@ export const QuestionScreen: React.FC<QuestionScreenProps> = ({
   const sceneConfig = getSceneConfig(question.sceneId)
   const headingRef = useRef<HTMLHeadingElement>(null)
 
+  const title = resolveQuestionTitle(question, answers)
+  const subtitle = resolveQuestionSubtitle(question, answers)
+  const options: QuestionOption[] = resolveQuestionOptions(question, answers)
+
   // Focus the heading on question step change for screen reader clarity
   useEffect(() => {
     headingRef.current?.focus()
   }, [question.id])
 
   const handleRadioGroupKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
-    if (question.type !== 'single_choice' || !question.options || question.options.length === 0) return
-    const options = question.options
+    if (question.type !== 'single_choice' || options.length === 0) return
     const currentIndex = options.findIndex((opt) => opt.id === currentAnswer)
 
     if (e.key === 'ArrowDown' || e.key === 'ArrowRight') {
@@ -62,6 +78,24 @@ export const QuestionScreen: React.FC<QuestionScreenProps> = ({
     }
   }
 
+  // Multi-choice toggle handler
+  const handleMultiChoiceToggle = (optionId: string) => {
+    const selectedList: string[] = Array.isArray(currentAnswer) ? [...currentAnswer] : []
+    const isSelected = selectedList.includes(optionId)
+
+    if (isSelected) {
+      onAnswerChange(question.id, selectedList.filter(id => id !== optionId))
+    } else {
+      // Check max selections
+      if (question.maxSelections && selectedList.length >= question.maxSelections) {
+        return // Can't add more than max
+      }
+      onAnswerChange(question.id, [...selectedList, optionId])
+    }
+  }
+
+  const isAlreadyAbroad = answers.journey_stage === 'already_abroad'
+
   return (
     <main className={styles.wrapper}>
       <div className={styles.topBar}>
@@ -78,10 +112,10 @@ export const QuestionScreen: React.FC<QuestionScreenProps> = ({
               tabIndex={-1}
               className={styles.title}
             >
-              {question.title}
+              {title}
             </h1>
-            {question.subtitle && (
-              <p className={styles.subtitle}>{question.subtitle}</p>
+            {subtitle && (
+              <p className={styles.subtitle}>{subtitle}</p>
             )}
           </div>
 
@@ -94,14 +128,14 @@ export const QuestionScreen: React.FC<QuestionScreenProps> = ({
           )}
 
           {/* Question Input Type Routing */}
-          {question.type === 'single_choice' && question.options && (
+          {question.type === 'single_choice' && options.length > 0 && (
             <div 
               role="radiogroup" 
               aria-labelledby={`q-title-${question.id}`}
               className={styles.optionsGroup}
               onKeyDown={handleRadioGroupKeyDown}
             >
-              {question.options.map((opt) => (
+              {options.map((opt) => (
                 <Card
                   key={opt.id}
                   id={opt.id}
@@ -116,11 +150,102 @@ export const QuestionScreen: React.FC<QuestionScreenProps> = ({
             </div>
           )}
 
+          {question.type === 'multi_choice' && options.length > 0 && (
+            <div 
+              role="group" 
+              aria-labelledby={`q-title-${question.id}`}
+              className={styles.optionsGroup}
+            >
+              {options.map((opt) => {
+                const selectedList: string[] = Array.isArray(currentAnswer) ? currentAnswer : []
+                const isSelected = selectedList.includes(opt.id)
+                const isMaxReached = Boolean(
+                  question.maxSelections && 
+                  selectedList.length >= question.maxSelections && 
+                  !isSelected
+                )
+
+                return (
+                  <MultiCard
+                    key={opt.id}
+                    id={opt.id}
+                    name={question.id}
+                    label={opt.label}
+                    description={opt.description}
+                    badge={opt.badge}
+                    selected={isSelected}
+                    disabled={isMaxReached}
+                    onToggle={() => handleMultiChoiceToggle(opt.id)}
+                  />
+                )
+              })}
+            </div>
+          )}
+
           {question.type === 'country_select' && (
             <CountryCombobox
               value={currentAnswer as CountryInfo | undefined}
               onChange={(country) => onAnswerChange(question.id, country)}
               onClear={() => onAnswerChange(question.id, undefined)}
+              error={validationError || undefined}
+            />
+          )}
+
+          {question.type === 'citizenship_select' && (
+            <CitizenshipSelect
+              value={currentAnswer as any}
+              onChange={(cit) => onAnswerChange(question.id, cit)}
+              error={validationError || undefined}
+            />
+          )}
+
+          {question.type === 'destination_country_select' && (
+            <DestinationSelect
+              value={currentAnswer as any}
+              onChange={(dest) => onAnswerChange(question.id, dest)}
+              error={validationError || undefined}
+            />
+          )}
+
+          {question.type === 'city_input' && (
+            <CityInput
+              value={currentAnswer as any}
+              onChange={(city) => onAnswerChange(question.id, city)}
+              isAlreadyAbroad={isAlreadyAbroad}
+              error={validationError || undefined}
+            />
+          )}
+
+          {question.type === 'date_select' && (
+            <DateSelect
+              value={currentAnswer as any}
+              onChange={(d) => onAnswerChange(question.id, d)}
+              isAlreadyAbroad={isAlreadyAbroad}
+              error={validationError || undefined}
+            />
+          )}
+
+          {question.type === 'backpacking_destinations_select' && (
+            <BackpackingSelect
+              value={currentAnswer as any}
+              onChange={(bpk) => onAnswerChange(question.id, bpk)}
+              error={validationError || undefined}
+            />
+          )}
+
+          {question.type === 'budget_input' && (
+            <BudgetInput
+              value={currentAnswer as any}
+              onChange={(bgt) => onAnswerChange(question.id, bgt)}
+              error={validationError || undefined}
+            />
+          )}
+
+          {question.type === 'university_input' && (
+            <UniversityInput
+              value={currentAnswer as any}
+              onChange={(uni) => onAnswerChange(question.id, uni)}
+              isAlreadyAbroad={isAlreadyAbroad}
               error={validationError || undefined}
             />
           )}

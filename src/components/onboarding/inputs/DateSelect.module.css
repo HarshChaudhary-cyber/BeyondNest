@@ -1,0 +1,106 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: 100%;
+}
+
+.selectsRow {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  width: 100%;
+}
+
+.fieldGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.label {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--bn-text-primary);
+}
+
+.selectWrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+
+.fieldIcon {
+  position: absolute;
+  left: 14px;
+  color: var(--bn-text-tertiary);
+  pointer-events: none;
+}
+
+.select {
+  width: 100%;
+  padding: 16px 14px 16px 42px;
+  border-radius: var(--bn-radius-lg);
+  border: 2px solid var(--bn-border-light);
+  background-color: var(--bn-bg-surface);
+  font-size: 16px;
+  color: var(--bn-text-primary);
+  box-shadow: var(--bn-shadow-sm);
+  transition: all var(--bn-transition-fast);
+  cursor: pointer;
+  appearance: auto;
+}
+
+.select:focus {
+  outline: none;
+  border-color: var(--bn-color-teal-600);
+  background-color: #FFFFFF;
+  box-shadow: var(--bn-shadow-md);
+}
+
+.disabledSelect {
+  opacity: 0.5;
+  background-color: var(--bn-bg-subtle);
+  cursor: not-allowed;
+}
+
+.selectError {
+  border-color: var(--bn-color-coral);
+}
+
+.toggleRow {
+  display: flex;
+  align-items: center;
+}
+
+.toggleLabel {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--bn-text-secondary);
+  cursor: pointer;
+}
+
+.checkbox {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--bn-color-teal-600);
+  cursor: pointer;
+}
+
+.helperText {
+  font-size: 13px;
+  color: var(--bn-text-tertiary);
+  line-height: 1.4;
+  margin: 0;
+}
+
+@media (max-width: 640px) {
+  .selectsRow {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+}

@@ -1,36 +1,58 @@
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import type { 
   OnboardingAnswers, 
   QuestionId, 
   StoredOnboardingState, 
   FlowScreen, 
   RelocationPurpose,
-  JourneyStage 
+  JourneyStage,
+  CountryInfo,
+  DestinationCountryAnswer,
+  DestinationPriority,
+  PlannedDurationAnswer,
+  TravelStyleAnswer,
+  CompanionsAnswer,
+  StudyLevelAnswer,
+  WorkStatusAnswer,
+  PreparationItem,
+  PriorityArea,
+  StorageStatus
 } from './types'
-import { QUESTIONS, getNextQuestionId, getPreviousQuestionId, getQuestionById } from '../config/questions'
+import { 
+  QUESTIONS, 
+  getApplicableQuestions, 
+  getNextQuestionId, 
+  getPreviousQuestionId, 
+  getQuestionById 
+} from '../config/questions'
 import { findCountryByCode } from '../data/countries'
+import { findCitizenshipByCode } from '../data/citizenships'
 import { FEATURE_FLAGS } from '../config/featureFlags'
 
-export const STORAGE_KEY = 'beyondnest_onboarding_v1'
-export const CURRENT_SCHEMA_VERSION = 1
+export const STORAGE_KEY_V2 = 'beyondnest_onboarding_v2'
+export const STORAGE_KEY_V1 = 'beyondnest_onboarding_v1'
+export const STORAGE_KEY = STORAGE_KEY_V2
+export const CURRENT_SCHEMA_VERSION = 2
 
 export const DEFAULT_INITIAL_STATE: StoredOnboardingState = {
   version: CURRENT_SCHEMA_VERSION,
   updatedAt: new Date().toISOString(),
   answers: {},
   currentQuestionId: QUESTIONS[0]?.id || 'relocation_purpose',
-  isCompleted: false
+  isCompleted: false,
+  storageStatus: 'saved'
 }
 
 /**
- * Returns the first required question ID that lacks a valid answer,
- * or null if all required questions have valid answers.
+ * Returns the first required question ID that lacks a valid answer among applicable questions,
+ * or null if all currently applicable required questions have valid answers.
  */
 export function getFirstUnansweredRequiredQuestionId(answers: OnboardingAnswers): QuestionId | null {
-  for (const q of QUESTIONS) {
+  const applicable = getApplicableQuestions(answers)
+  for (const q of applicable) {
     if (q.isRequired) {
       const val = answers[q.id]
-      const validation = q.validate(val)
+      const validation = q.validate(val, answers)
       if (!validation.valid) {
         return q.id
       }
@@ -40,10 +62,97 @@ export function getFirstUnansweredRequiredQuestionId(answers: OnboardingAnswers)
 }
 
 /**
- * Returns whether every required question has a valid answer.
+ * Returns whether every currently applicable required question has a valid answer.
  */
 export function areAllRequiredQuestionsAnswered(answers: OnboardingAnswers): boolean {
   return getFirstUnansweredRequiredQuestionId(answers) === null
+}
+
+/**
+ * Apply dependency invalidation policy when an answer changes.
+ * Ensures dependent states are cleared when prerequisites change.
+ */
+export function applyDependencyInvalidation(
+  prevAnswers: OnboardingAnswers,
+  questionId: QuestionId,
+  newValue: unknown
+): OnboardingAnswers {
+  const nextAnswers = { ...prevAnswers, [questionId]: newValue }
+
+  // 1. Relocation Purpose changes
+  if (questionId === 'relocation_purpose') {
+    if (newValue !== 'study') {
+      delete nextAnswers.study_level
+      delete nextAnswers.university_name
+      if (Array.isArray(nextAnswers.preparation_status)) {
+        nextAnswers.preparation_status = nextAnswers.preparation_status.filter(
+          item => item !== 'admission_enrolment'
+        )
+      }
+    }
+    if (newValue !== 'work') {
+      delete nextAnswers.work_status
+      if (Array.isArray(nextAnswers.preparation_status)) {
+        nextAnswers.preparation_status = nextAnswers.preparation_status.filter(
+          item => item !== 'job_offer'
+        )
+      }
+    }
+  }
+
+  // 2. Journey Stage changes
+  if (questionId === 'journey_stage') {
+    if (newValue !== 'already_abroad') {
+      delete nextAnswers.origin_country_abroad
+    } else {
+      // If changed to already_abroad, remove travel booking from preparation if present
+      if (Array.isArray(nextAnswers.preparation_status)) {
+        nextAnswers.preparation_status = nextAnswers.preparation_status.filter(
+          item => item !== 'travel_booking'
+        )
+      }
+    }
+  }
+
+  // 3. Destination Country changes
+  if (questionId === 'destination_country') {
+    const val = newValue as Partial<DestinationCountryAnswer> | undefined
+    if (val && 'explore' in val && val.explore) {
+      // Changed to explore -> clear city
+      delete nextAnswers.destination_city
+    } else if (val && 'code' in val && val.code) {
+      // Changed to a specific country -> clear destination priorities
+      delete nextAnswers.destination_priorities
+      // If country changed compared to previous specific country, clear city
+      const prevDest = prevAnswers.destination_country
+      if (prevDest && 'code' in prevDest && prevDest.code !== val.code) {
+        delete nextAnswers.destination_city
+      }
+    }
+  }
+
+  // 4. Travel Style changes
+  if (questionId === 'travel_style') {
+    if (newValue !== 'backpacking' && newValue !== 'mix') {
+      delete nextAnswers.backpacking_destinations
+    }
+  }
+
+  // 5. Preparation Status mutual exclusivity
+  if (questionId === 'preparation_status' && Array.isArray(newValue)) {
+    if (newValue.includes('nothing_yet')) {
+      const prevPrep = prevAnswers.preparation_status || []
+      if (!prevPrep.includes('nothing_yet') && newValue.length > 1) {
+        // User just clicked 'nothing_yet': isolate it
+        nextAnswers.preparation_status = ['nothing_yet']
+      } else if (newValue.length > 1) {
+        // User had 'nothing_yet' and clicked something else: uncheck 'nothing_yet'
+        nextAnswers.preparation_status = newValue.filter(i => i !== 'nothing_yet')
+      }
+    }
+  }
+
+  return nextAnswers
 }
 
 /**
@@ -57,64 +166,235 @@ export function validateAndSanitizeStoredState(raw: unknown): StoredOnboardingSt
 
   const obj = raw as Record<string, unknown>
 
-  // Version check — reset if schema version does not match
-  if (obj.version !== CURRENT_SCHEMA_VERSION) {
+  // Version check: if version is unrecognized (not current version and not v1), reset to defaults
+  if (typeof obj.version === 'number' && obj.version !== CURRENT_SCHEMA_VERSION && obj.version !== 1) {
     return { ...DEFAULT_INITIAL_STATE }
   }
 
   const answers: OnboardingAnswers = {}
 
-  // 1. Validate relocation_purpose
-  const validPurposes: RelocationPurpose[] = ['study', 'work', 'family', 'explore']
   if (typeof obj.answers === 'object' && obj.answers !== null) {
     const rawAnswers = obj.answers as Record<string, unknown>
+
+    // 1. Relocation Purpose
+    const validPurposes: RelocationPurpose[] = ['study', 'work', 'family', 'explore']
     if (typeof rawAnswers.relocation_purpose === 'string' && validPurposes.includes(rawAnswers.relocation_purpose as RelocationPurpose)) {
       answers.relocation_purpose = rawAnswers.relocation_purpose as RelocationPurpose
     }
 
-    // 2. Validate journey_stage
+    // 2. Journey Stage
     const validStages: JourneyStage[] = ['exploring', 'preparing_apps', 'accepted_offer', 'preparing_leave', 'already_abroad']
     if (typeof rawAnswers.journey_stage === 'string' && validStages.includes(rawAnswers.journey_stage as JourneyStage)) {
       answers.journey_stage = rawAnswers.journey_stage as JourneyStage
     }
 
-    // 3. Validate current_country against canonical dataset
+    // 3. Current Country
     if (typeof rawAnswers.current_country === 'object' && rawAnswers.current_country !== null) {
       const rawCountry = rawAnswers.current_country as { code?: unknown }
       if (typeof rawCountry.code === 'string') {
         const canonical = findCountryByCode(rawCountry.code)
         if (canonical) {
-          // Restore canonical names, coordinates, and region; do not trust stored copies
-          answers.current_country = {
-            code: canonical.code,
-            name: canonical.name,
-            lat: canonical.lat,
-            lon: canonical.lon,
-            region: canonical.region
+          answers.current_country = { ...canonical }
+        }
+      }
+    }
+
+    // 4. Citizenship
+    if (typeof rawAnswers.citizenship === 'object' && rawAnswers.citizenship !== null) {
+      const rawCit = rawAnswers.citizenship as { codes?: unknown; skipped?: unknown }
+      if (rawCit.skipped === true) {
+        answers.citizenship = { codes: [], skipped: true }
+      } else if (Array.isArray(rawCit.codes)) {
+        const validCodes = rawCit.codes
+          .filter((c): c is string => typeof c === 'string' && Boolean(findCitizenshipByCode(c)))
+        if (validCodes.length > 0) {
+          answers.citizenship = { codes: validCodes }
+        }
+      }
+    }
+
+    // 5. Destination Country
+    if (typeof rawAnswers.destination_country === 'object' && rawAnswers.destination_country !== null) {
+      const rawDest = rawAnswers.destination_country as { explore?: unknown; code?: unknown }
+      if (rawDest.explore === true) {
+        answers.destination_country = { explore: true }
+      } else if (typeof rawDest.code === 'string') {
+        const canonical = findCountryByCode(rawDest.code)
+        if (canonical) {
+          answers.destination_country = { ...canonical }
+        }
+      }
+    }
+
+    // 6. Origin Country Abroad
+    if (typeof rawAnswers.origin_country_abroad === 'object' && rawAnswers.origin_country_abroad !== null) {
+      const rawOrig = rawAnswers.origin_country_abroad as { preferNotToSay?: unknown; code?: unknown }
+      if (rawOrig.preferNotToSay === true) {
+        answers.origin_country_abroad = { preferNotToSay: true }
+      } else if (typeof rawOrig.code === 'string') {
+        const canonical = findCountryByCode(rawOrig.code)
+        if (canonical) {
+          answers.origin_country_abroad = { ...canonical }
+        }
+      }
+    }
+
+    // 7. Destination City
+    if (typeof rawAnswers.destination_city === 'object' && rawAnswers.destination_city !== null) {
+      const rawCity = rawAnswers.destination_city as { cityName?: unknown; notDecided?: unknown }
+      if (rawCity.notDecided === true) {
+        answers.destination_city = { notDecided: true }
+      } else if (typeof rawCity.cityName === 'string' && rawCity.cityName.trim().length > 0) {
+        answers.destination_city = { cityName: rawCity.cityName.trim() }
+      }
+    }
+
+    // 8. Destination Priorities
+    if (Array.isArray(rawAnswers.destination_priorities)) {
+      const validPriorities: DestinationPriority[] = [
+        'study_opportunities', 'work_opportunities', 'living_costs', 
+        'language', 'family_connections', 'lifestyle_community'
+      ]
+      const sanitized = rawAnswers.destination_priorities.filter(
+        (p): p is DestinationPriority => typeof p === 'string' && validPriorities.includes(p as DestinationPriority)
+      ).slice(0, 3)
+      if (sanitized.length > 0) {
+        answers.destination_priorities = sanitized
+      }
+    }
+
+    // 9. Move Date
+    if (typeof rawAnswers.move_date === 'object' && rawAnswers.move_date !== null) {
+      const rawDate = rawAnswers.move_date as { year?: unknown; month?: unknown; notSureYet?: unknown; preferNotToSay?: unknown }
+      if (rawDate.preferNotToSay === true) {
+        answers.move_date = { preferNotToSay: true }
+      } else if (rawDate.notSureYet === true) {
+        answers.move_date = { notSureYet: true }
+      } else if (
+        typeof rawDate.year === 'number' && 
+        typeof rawDate.month === 'number' && 
+        rawDate.month >= 1 && 
+        rawDate.month <= 12
+      ) {
+        answers.move_date = { year: rawDate.year, month: rawDate.month }
+      }
+    }
+
+    // 10. Stay Duration
+    const validDurations: PlannedDurationAnswer[] = ['under_6_months', '6_to_12_months', '1_to_2_years', 'more_than_2_years', 'not_sure']
+    if (typeof rawAnswers.planned_duration === 'string' && validDurations.includes(rawAnswers.planned_duration as PlannedDurationAnswer)) {
+      answers.planned_duration = rawAnswers.planned_duration as PlannedDurationAnswer
+    }
+
+    // 11. Travel Style
+    const validStyles: TravelStyleAnswer[] = ['backpacking', 'settling', 'mix', 'not_sure']
+    if (typeof rawAnswers.travel_style === 'string' && validStyles.includes(rawAnswers.travel_style as TravelStyleAnswer)) {
+      answers.travel_style = rawAnswers.travel_style as TravelStyleAnswer
+    }
+
+    // 12. Backpacking Destinations
+    if (typeof rawAnswers.backpacking_destinations === 'object' && rawAnswers.backpacking_destinations !== null) {
+      const rawBpk = rawAnswers.backpacking_destinations as { destinations?: unknown; planRouteForMe?: unknown }
+      if (rawBpk.planRouteForMe === true) {
+        answers.backpacking_destinations = { destinations: [], planRouteForMe: true }
+      } else if (Array.isArray(rawBpk.destinations)) {
+        const canonicalDests: CountryInfo[] = []
+        for (const item of rawBpk.destinations) {
+          if (item && typeof item === 'object' && typeof (item as { code?: unknown }).code === 'string') {
+            const c = findCountryByCode((item as { code: string }).code)
+            if (c) canonicalDests.push({ ...c })
           }
         }
+        if (canonicalDests.length > 0) {
+          answers.backpacking_destinations = { destinations: canonicalDests }
+        }
+      }
+    }
+
+    // 13. Companions
+    const validCompanions: CompanionsAnswer[] = ['solo', 'partner', 'family', 'friends']
+    if (typeof rawAnswers.companions === 'string' && validCompanions.includes(rawAnswers.companions as CompanionsAnswer)) {
+      answers.companions = rawAnswers.companions as CompanionsAnswer
+    }
+
+    // 14. Living Budget
+    if (typeof rawAnswers.living_budget === 'object' && rawAnswers.living_budget !== null) {
+      const rawBgt = rawAnswers.living_budget as { currency?: unknown; amount?: unknown; helpEstimate?: unknown }
+      const cur = typeof rawBgt.currency === 'string' && rawBgt.currency.length > 0 ? rawBgt.currency : 'USD'
+      if (rawBgt.helpEstimate === true) {
+        answers.living_budget = { currency: cur, helpEstimate: true }
+      } else if (typeof rawBgt.amount === 'number' && !isNaN(rawBgt.amount) && rawBgt.amount > 0) {
+        answers.living_budget = { currency: cur, amount: rawBgt.amount }
+      }
+    }
+
+    // 15. Student: Study Level
+    const validLevels: StudyLevelAnswer[] = ['language_prep', 'bachelors', 'masters', 'doctorate', 'exchange_short', 'other', 'not_sure']
+    if (typeof rawAnswers.study_level === 'string' && validLevels.includes(rawAnswers.study_level as StudyLevelAnswer)) {
+      answers.study_level = rawAnswers.study_level as StudyLevelAnswer
+    }
+
+    // 16. Student: University Name
+    if (typeof rawAnswers.university_name === 'object' && rawAnswers.university_name !== null) {
+      const rawUni = rawAnswers.university_name as { name?: unknown; notDecided?: unknown }
+      if (rawUni.notDecided === true) {
+        answers.university_name = { notDecided: true }
+      } else if (typeof rawUni.name === 'string' && rawUni.name.trim().length > 0) {
+        answers.university_name = { name: rawUni.name.trim() }
+      }
+    }
+
+    // 17. Work: Work Status
+    const validWork: WorkStatusAnswer[] = ['yes_offer', 'interviewing', 'not_yet', 'not_applicable', 'employed', 'starting_soon', 'looking', 'other']
+    if (typeof rawAnswers.work_status === 'string' && validWork.includes(rawAnswers.work_status as WorkStatusAnswer)) {
+      answers.work_status = rawAnswers.work_status as WorkStatusAnswer
+    }
+
+    // 18. Preparation Status
+    if (Array.isArray(rawAnswers.preparation_status)) {
+      const validItems: PreparationItem[] = [
+        'admission_enrolment', 'job_offer', 'visa_permission', 'housing', 'insurance', 'travel_booking', 'nothing_yet'
+      ]
+      const sanitized = rawAnswers.preparation_status.filter(
+        (i): i is PreparationItem => typeof i === 'string' && validItems.includes(i as PreparationItem)
+      )
+      if (sanitized.includes('nothing_yet')) {
+        answers.preparation_status = ['nothing_yet']
+      } else if (sanitized.length > 0) {
+        answers.preparation_status = sanitized
+      }
+    }
+
+    // 19. First Priorities
+    if (Array.isArray(rawAnswers.first_priority)) {
+      const validPriorities: PriorityArea[] = [
+        'paperwork', 'housing', 'budget', 'language_daily_life', 'meeting_people', 'whole_process'
+      ]
+      const sanitized = rawAnswers.first_priority.filter(
+        (p): p is PriorityArea => typeof p === 'string' && validPriorities.includes(p as PriorityArea)
+      ).slice(0, 3)
+      if (sanitized.length > 0) {
+        answers.first_priority = sanitized
       }
     }
   }
 
-  // 4. Validate completion flag:
-  // Strict check — treat completion as valid ONLY when every required question is genuinely answered
+  // Completion flag:
+  // Strict check — treat completion as valid ONLY when every currently applicable required question is genuinely answered
   const allAnswered = areAllRequiredQuestionsAnswered(answers)
   const isCompleted = obj.isCompleted === true && allAnswered
 
-  // 5. Validate navigation state (currentQuestionId):
-  // Prevent users from skipping required questions through malformed stored data
+  // Navigation state (currentQuestionId) clamping
+  const applicable = getApplicableQuestions(answers)
   const firstUnanswered = getFirstUnansweredRequiredQuestionId(answers)
-  let currentQuestionId: QuestionId = QUESTIONS[0].id
+  let currentQuestionId: QuestionId = applicable[0]?.id || QUESTIONS[0].id
 
   if (isCompleted) {
-    currentQuestionId = QUESTIONS[QUESTIONS.length - 1].id
+    currentQuestionId = applicable[applicable.length - 1]?.id || QUESTIONS[0].id
   } else if (firstUnanswered) {
-    // If there is an unanswered required question, ensure user cannot advance past it
-    if (typeof obj.currentQuestionId === 'string' && QUESTIONS.some(q => q.id === obj.currentQuestionId)) {
-      const storedIdx = QUESTIONS.findIndex(q => q.id === obj.currentQuestionId)
-      const unansweredIdx = QUESTIONS.findIndex(q => q.id === firstUnanswered)
-      // If stored question is beyond the first unanswered question, clamp back to firstUnanswered
+    if (typeof obj.currentQuestionId === 'string' && applicable.some(q => q.id === obj.currentQuestionId)) {
+      const storedIdx = applicable.findIndex(q => q.id === obj.currentQuestionId)
+      const unansweredIdx = applicable.findIndex(q => q.id === firstUnanswered)
       if (storedIdx > unansweredIdx) {
         currentQuestionId = firstUnanswered
       } else {
@@ -124,8 +404,7 @@ export function validateAndSanitizeStoredState(raw: unknown): StoredOnboardingSt
       currentQuestionId = firstUnanswered
     }
   } else {
-    // All answered but not marked completed yet
-    if (typeof obj.currentQuestionId === 'string' && QUESTIONS.some(q => q.id === obj.currentQuestionId)) {
+    if (typeof obj.currentQuestionId === 'string' && applicable.some(q => q.id === obj.currentQuestionId)) {
       currentQuestionId = obj.currentQuestionId as QuestionId
     }
   }
@@ -135,23 +414,61 @@ export function validateAndSanitizeStoredState(raw: unknown): StoredOnboardingSt
     updatedAt: typeof obj.updatedAt === 'string' ? obj.updatedAt : new Date().toISOString(),
     answers,
     currentQuestionId,
-    isCompleted
+    isCompleted,
+    storageStatus: 'saved'
   }
 }
 
 /**
- * Pure helper to read from localStorage with error safety
+ * Migration helper from Schema Version 1 to Schema Version 2.
+ * Critical requirement: A Task 1 preview marked completed must NOT count as completion
+ * of the expanded onboarding. Resumes at the first new applicable question (citizenship).
+ */
+export function migrateV1State(rawV1: unknown): StoredOnboardingState {
+  const sanitized = validateAndSanitizeStoredState(rawV1)
+  
+  // Explicitly reset isCompleted to false
+  sanitized.isCompleted = false
+  sanitized.version = CURRENT_SCHEMA_VERSION
+  
+  // Set currentQuestionId to first unanswered applicable question (e.g. citizenship)
+  const firstUnanswered = getFirstUnansweredRequiredQuestionId(sanitized.answers)
+  sanitized.currentQuestionId = firstUnanswered || 'citizenship'
+  
+  return sanitized
+}
+
+/**
+ * Read from localStorage with error safety and automatic v1 -> v2 migration.
  */
 export function loadPersistedState(): StoredOnboardingState {
   if (typeof window === 'undefined' || !FEATURE_FLAGS.persistProgressLocally) {
-    return { ...DEFAULT_INITIAL_STATE }
+    return { ...DEFAULT_INITIAL_STATE, storageStatus: 'disabled' }
   }
 
   try {
-    const item = localStorage.getItem(STORAGE_KEY)
-    if (!item) return { ...DEFAULT_INITIAL_STATE }
-    const parsed = JSON.parse(item)
-    return validateAndSanitizeStoredState(parsed)
+    // 1. Try loading version 2 state
+    const v2Item = localStorage.getItem(STORAGE_KEY_V2)
+    if (v2Item) {
+      const parsed = JSON.parse(v2Item)
+      return validateAndSanitizeStoredState(parsed)
+    }
+
+    // 2. Fall back to version 1 state for migration
+    const v1Item = localStorage.getItem(STORAGE_KEY_V1)
+    if (v1Item) {
+      const parsedV1 = JSON.parse(v1Item)
+      const migrated = migrateV1State(parsedV1)
+      // Save migrated state under v2
+      try {
+        localStorage.setItem(STORAGE_KEY_V2, JSON.stringify(migrated))
+      } catch {
+        // Safe ignore
+      }
+      return migrated
+    }
+
+    return { ...DEFAULT_INITIAL_STATE }
   } catch (err) {
     console.warn('[BeyondNest] Failed to load onboarding state, resetting to defaults:', err)
     return { ...DEFAULT_INITIAL_STATE }
@@ -159,62 +476,77 @@ export function loadPersistedState(): StoredOnboardingState {
 }
 
 /**
- * Pure helper to save to localStorage with error safety
+ * Save to localStorage with error safety and honest status reporting.
  */
-export function savePersistedState(state: StoredOnboardingState): void {
+export function savePersistedState(state: StoredOnboardingState): StorageStatus {
   if (typeof window === 'undefined' || !FEATURE_FLAGS.persistProgressLocally) {
-    return
+    return 'disabled'
   }
 
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({
+    localStorage.setItem(STORAGE_KEY_V2, JSON.stringify({
       ...state,
       version: CURRENT_SCHEMA_VERSION,
       updatedAt: new Date().toISOString()
     }))
+    return 'saved'
   } catch (err) {
     console.warn('[BeyondNest] Failed to persist onboarding state:', err)
+    return 'error'
   }
 }
 
 /**
- * Pure helper to clear onboarding persistence
+ * Clear onboarding persistence across all schema versions.
  */
 export function clearPersistedState(): void {
   if (typeof window === 'undefined') return
   try {
-    localStorage.removeItem(STORAGE_KEY)
+    localStorage.removeItem(STORAGE_KEY_V2)
+    localStorage.removeItem(STORAGE_KEY_V1)
   } catch (err) {
     console.warn('[BeyondNest] Failed to clear onboarding state:', err)
   }
 }
 
 /**
- * React hook to manage onboarding state, navigation, answers, and persistence
+ * React hook to manage adaptive onboarding state, navigation, answers, and persistence.
  */
 export function useOnboardingStore() {
   const [persisted, setPersisted] = useState<StoredOnboardingState>(() => loadPersistedState())
+  const [isReviewEditing, setIsReviewEditing] = useState<boolean>(false)
+  const [storageStatus, setStorageStatus] = useState<StorageStatus>(persisted.storageStatus || 'saved')
+  const [validationError, setValidationError] = useState<string | null>(null)
+
   const [screen, setScreen] = useState<FlowScreen>(() => {
-    // If completed previously and all required answers exist, resume at summary
     if (persisted.isCompleted) {
       return { type: 'summary' }
     }
-    // If user has answered at least one question, resume at validated question step
     if (Object.keys(persisted.answers).length > 0) {
-      return { type: 'question', questionId: persisted.currentQuestionId || QUESTIONS[0].id }
+      const targetId = persisted.currentQuestionId || QUESTIONS[0].id
+      return { type: 'question', questionId: targetId }
     }
     return { type: 'welcome' }
   })
-  const [validationError, setValidationError] = useState<string | null>(null)
 
   // Sync state to localStorage whenever persisted state updates
+  const isInitialMount = useRef(true)
   useEffect(() => {
-    savePersistedState(persisted)
+    if (isInitialMount.current) {
+      isInitialMount.current = false
+      return
+    }
+    const status = savePersistedState(persisted)
+    setStorageStatus(status)
   }, [persisted])
+
+  const applicableQuestions = useMemo(() => {
+    return getApplicableQuestions(persisted.answers)
+  }, [persisted.answers])
 
   const setAnswer = useCallback(<K extends keyof OnboardingAnswers>(questionId: K, value: OnboardingAnswers[K]) => {
     setPersisted(prev => {
-      const nextAnswers = { ...prev.answers, [questionId]: value }
+      const nextAnswers = applyDependencyInvalidation(prev.answers, questionId as QuestionId, value)
       return {
         ...prev,
         answers: nextAnswers
@@ -224,14 +556,16 @@ export function useOnboardingStore() {
   }, [])
 
   const startOnboarding = useCallback(() => {
-    setScreen({ type: 'question', questionId: QUESTIONS[0].id })
+    const firstId = applicableQuestions[0]?.id || QUESTIONS[0].id
+    setScreen({ type: 'question', questionId: firstId })
+    setIsReviewEditing(false)
     setPersisted(prev => ({
       ...prev,
-      currentQuestionId: QUESTIONS[0].id,
+      currentQuestionId: firstId,
       isCompleted: false
     }))
     setValidationError(null)
-  }, [])
+  }, [applicableQuestions])
 
   const goToNextQuestion = useCallback(() => {
     if (screen.type !== 'question') return
@@ -241,29 +575,54 @@ export function useOnboardingStore() {
 
     // Run question validation
     const currentAnswer = persisted.answers[screen.questionId]
-    const validation = currentQ.validate(currentAnswer)
+    const validation = currentQ.validate(currentAnswer, persisted.answers)
     if (!validation.valid) {
       setValidationError(validation.error || 'Please provide an answer before continuing.')
       return
     }
 
     setValidationError(null)
-    const nextId = getNextQuestionId(screen.questionId)
+
+    // Check if in Review Editing mode
+    if (isReviewEditing) {
+      // If there are still unanswered required questions (e.g. branch change), navigate to the first one
+      const unansweredId = getFirstUnansweredRequiredQuestionId(persisted.answers)
+      if (unansweredId) {
+        setScreen({ type: 'question', questionId: unansweredId })
+        setPersisted(prev => ({ ...prev, currentQuestionId: unansweredId }))
+        return
+      }
+      // Otherwise, return directly to summary review
+      setIsReviewEditing(false)
+      setScreen({ type: 'summary' })
+      setPersisted(prev => ({ ...prev, isCompleted: true }))
+      return
+    }
+
+    const nextId = getNextQuestionId(screen.questionId, persisted.answers)
     if (nextId) {
       setScreen({ type: 'question', questionId: nextId })
       setPersisted(prev => ({ ...prev, currentQuestionId: nextId }))
     } else {
-      // Completed all questions in milestone 1
+      // Completed all applicable questions
       setScreen({ type: 'summary' })
       setPersisted(prev => ({ ...prev, isCompleted: true }))
     }
-  }, [screen, persisted.answers])
+  }, [screen, persisted.answers, isReviewEditing])
 
   const goToPreviousQuestion = useCallback(() => {
     if (screen.type !== 'question') return
 
     setValidationError(null)
-    const prevId = getPreviousQuestionId(screen.questionId)
+
+    // If review editing and user clicks back, return to summary
+    if (isReviewEditing) {
+      setIsReviewEditing(false)
+      setScreen({ type: 'summary' })
+      return
+    }
+
+    const prevId = getPreviousQuestionId(screen.questionId, persisted.answers)
     if (prevId) {
       setScreen({ type: 'question', questionId: prevId })
       setPersisted(prev => ({ ...prev, currentQuestionId: prevId }))
@@ -271,16 +630,18 @@ export function useOnboardingStore() {
       // Back to welcome
       setScreen({ type: 'welcome' })
     }
-  }, [screen])
+  }, [screen, persisted.answers, isReviewEditing])
 
   const editAnswer = useCallback((questionId: QuestionId) => {
     setValidationError(null)
+    setIsReviewEditing(true)
     setScreen({ type: 'question', questionId })
     setPersisted(prev => ({ ...prev, currentQuestionId: questionId, isCompleted: false }))
   }, [])
 
   const resetOnboarding = useCallback(() => {
     clearPersistedState()
+    setIsReviewEditing(false)
     setPersisted({ ...DEFAULT_INITIAL_STATE })
     setScreen({ type: 'welcome' })
     setValidationError(null)
@@ -293,17 +654,24 @@ export function useOnboardingStore() {
 
   const currentStepNumber = useMemo(() => {
     if (screen.type !== 'question') return 0
-    const idx = QUESTIONS.findIndex(q => q.id === screen.questionId)
+    const idx = applicableQuestions.findIndex(q => q.id === screen.questionId)
     return idx >= 0 ? idx + 1 : 1
-  }, [screen])
+  }, [screen, applicableQuestions])
+
+  const totalSteps = useMemo(() => {
+    return applicableQuestions.length
+  }, [applicableQuestions])
 
   return {
     screen,
     answers: persisted.answers,
     currentQuestion,
     currentStepNumber,
-    totalSteps: QUESTIONS.length,
+    totalSteps,
+    applicableQuestions,
     validationError,
+    storageStatus,
+    isReviewEditing,
     setAnswer,
     startOnboarding,
     goToNextQuestion,

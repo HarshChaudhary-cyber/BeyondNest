@@ -17,6 +17,7 @@ export const OnboardingShell: React.FC = () => {
     currentStepNumber,
     totalSteps,
     validationError,
+    storageStatus,
     setAnswer,
     startOnboarding,
     goToNextQuestion,
@@ -59,6 +60,7 @@ export const OnboardingShell: React.FC = () => {
         {screen.type === 'summary' && (
           <SummaryScreen
             answers={answers}
+            storageStatus={storageStatus}
             onEditAnswer={editAnswer}
             onStartAgain={resetOnboarding}
           />
@@ -68,7 +70,7 @@ export const OnboardingShell: React.FC = () => {
       <footer className={styles.footer}>
         <span>© {CURRENT_YEAR} {BRAND.name}. {BRAND.tagline}</span>
         <div className={styles.footerLinks}>
-          <span>Milestone 1 Preview</span>
+          <span>Milestone 2 Adaptive Onboarding</span>
           <span>•</span>
           <span>Privacy Conscious (Local Only)</span>
         </div>

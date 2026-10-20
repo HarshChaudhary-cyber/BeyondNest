@@ -1,0 +1,129 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: 100%;
+}
+
+.countrySection {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.sectionLabel {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--bn-text-secondary);
+}
+
+.divider {
+  display: flex;
+  align-items: center;
+  text-align: center;
+  color: var(--bn-text-tertiary);
+  margin: 4px 0;
+}
+
+.divider::before,
+.divider::after {
+  content: '';
+  flex: 1;
+  border-bottom: 1px solid var(--bn-border-light);
+}
+
+.dividerText {
+  padding: 0 12px;
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 600;
+}
+
+.exploreCard {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  width: 100%;
+  padding: 18px 22px;
+  border-radius: var(--bn-radius-lg);
+  background-color: var(--bn-bg-surface);
+  border: 2px solid var(--bn-border-light);
+  box-shadow: var(--bn-shadow-sm);
+  text-align: left;
+  cursor: pointer;
+  transition: all var(--bn-transition-normal);
+  position: relative;
+  overflow: hidden;
+}
+
+.exploreCard:hover {
+  border-color: var(--bn-border-hover);
+  box-shadow: var(--bn-shadow-md);
+  transform: translateY(-2px);
+  background-color: #FFFFFF;
+}
+
+.exploreCardSelected {
+  border-color: var(--bn-color-teal-600);
+  background-color: #FFFFFF;
+  box-shadow: var(--bn-shadow-card-selected);
+}
+
+.exploreCardSelected::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 5px;
+  height: 100%;
+  background-color: var(--bn-color-teal-600);
+}
+
+.exploreIconWrapper {
+  width: 40px;
+  height: 40px;
+  border-radius: var(--bn-radius-md);
+  background-color: var(--bn-color-teal-50);
+  color: var(--bn-color-teal-700);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.exploreCardSelected .exploreIconWrapper {
+  background-color: var(--bn-color-teal-600);
+  color: #FFFFFF;
+}
+
+.exploreContent {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.exploreTitle {
+  font-family: var(--bn-font-display);
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--bn-text-primary);
+}
+
+.exploreDesc {
+  font-size: 13px;
+  color: var(--bn-text-secondary);
+  line-height: 1.4;
+}
+
+.selectedBadge {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  padding: 3px 8px;
+  border-radius: var(--bn-radius-full);
+  background-color: var(--bn-color-teal-100);
+  color: var(--bn-color-teal-800);
+  align-self: center;
+}

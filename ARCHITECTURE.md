@@ -45,35 +45,47 @@ Shared 3D brand colors, material parameters, and lighting are centralized in [`s
 
 ---
 
-## 2. How to Add or Modify Questions
+## 2. Adaptive Question Engine & Dependency Policy
 
-Questions are declaratively configured in [`src/config/questions.ts`](file:///d:/Personal%20project/BeyondNest/src/config/questions.ts). The application **does not use hardcoded screen indices** or rigid procedural switch statements. Option lookups are resolved by stable question IDs using `getQuestionById(id)` rather than array indices.
+Questions are declaratively configured in [`src/config/questions.ts`](file:///d:/Personal%20project/BeyondNest/src/config/questions.ts). The application does not use hardcoded screen indices or rigid procedural switch statements. Every question is defined with a stable ID, visibility rule (`isVisible`), dynamic copy resolvers (`title`, `subtitle`, `options`), validator, and dependency invalidation policy.
 
-To add a new question (e.g. for Milestone 2):
-1. Define the question's stable identifier in `src/store/types.ts`:
-   ```ts
-   export type QuestionId = 'relocation_purpose' | 'journey_stage' | 'current_country' | 'destination_country'
-   ```
-2. Add the question definition object to `QUESTIONS` in `src/config/questions.ts`:
-   ```ts
-   {
-     id: 'destination_country',
-     order: 4,
-     title: 'Where do you plan to move?',
-     subtitle: 'Select your prospective destination country.',
-     type: 'country_select',
-     sceneId: 'destination_globe_scene',
-     isRequired: true,
-     validate: (val) => val ? { valid: true } : { valid: false, error: 'Please choose a destination' }
-   }
-   ```
-3. The onboarding flow automatically calculates step progress (`Preview step X of Y`), handles back/continue transitions, and manages validation without any shell refactoring.
+### Question Model
+Each question in `QUESTIONS` defines:
+- `id`: Stable identifier from `QuestionId`.
+- `title` / `subtitle`: String or dynamic function `(answers) => string` adapting tense and wording (e.g. *"Where would you like to move?"* vs *"Which country did you move to?"* for already-abroad movers).
+- `type`: `card_select`, `multi_card_select`, `country_select`, `citizenship_select`, `destination_select`, `city_input`, `date_select`, `duration_select`, `backpacking_select`, `budget_input`, or `university_input`.
+- `isVisible(answers)`: Boolean predicate determining whether the question applies to the current user path.
+- `invalidates(newVal, oldVal)`: Function returning an array of downstream `QuestionId`s to clear when an answer changes.
+- `sceneId`: Stable key matching an entry in `SCENE_REGISTRY`.
+- `isRequired`: Whether the question must be answered or explicitly skipped before continuing.
+- `validate(value, answers)`: Pure validation function returning `{ valid: boolean, error?: string }`.
+
+### Dependency Invalidation Policy
+To maintain data integrity and prevent inconsistent planning state:
+1. **Upstream Invalidation:**
+   - Changing `relocation_purpose` clears `study_level`, `university`, and `work_status`.
+   - Changing `journey_stage` clears `move_date` (planning vs arrived semantics), `origin_country_abroad`, and `preparation_status` (due to purpose/stage-specific options).
+   - Changing `destination_country` clears `city` and `destination_priorities`.
+   - Changing `travel_style` to non-backpacking clears `backpacking_destinations`.
+2. **Exclusion from Planning & Review:** Inactive questions (where `isVisible(answers) === false`) are strictly filtered out of progress calculations (`Step X of Y`), review summaries, and downstream planning input.
+3. **Preservation of Independent Answers:** Unrelated valid answers (e.g. citizenship, companions, budget) are preserved across branch changes.
 
 ---
 
-## 3. How to Add or Change 3D Scenes (Scene Registry)
+## 3. Dedicated Citizenship & Passport Options Model
 
-The 3D presentation layer is decoupled from question logic via [`src/components/scenes/SceneRegistry.tsx`](file:///d:/Personal%20project/BeyondNest/src/components/scenes/SceneRegistry.tsx).
+Citizenship data is maintained in [`src/data/citizenships.ts`](file:///d:/Personal%20project/BeyondNest/src/data/citizenships.ts):
+- **Distinction from Residence:** We distinguish sovereign citizenship and passport-issuing authorities from territorial residence. Not every dependent territory or administrative zone in the 202-country residence list issues a separate sovereign passport.
+- **Coverage Policy:** 195 sovereign states plus internationally recognized travel document authorities (e.g. Hong Kong SAR `HK`, Macao SAR `MO`, Taiwan `TW`).
+- **Dependent Territories:** Non-sovereign overseas territories (e.g. Bermuda, Puerto Rico, Greenland) are not presented as separate sovereign nationalities; their citizens hold the respective sovereign passport (United Kingdom, United States, Kingdom of Denmark).
+- **Selection Policy:** Multi-select allowing dual/multiple citizenships, plus a dedicated "Skip for now" option explaining: *"This helps us find relevant official entry guidance later."*
+- **Limitations:** Collects nationality/citizenship selections only. Does not collect passport numbers, expiry dates, or uploaded documents. Does not perform legal dual-citizenship compatibility determinations.
+
+---
+
+## 4. 3D Scene Registry and Fallback Architecture
+
+The 3D presentation layer is completely decoupled from question logic via [`src/components/scenes/SceneRegistry.tsx`](file:///d:/Personal%20project/BeyondNest/src/components/scenes/SceneRegistry.tsx).
 
 Every scene entry in `SCENE_REGISTRY` provides:
 1. `renderScene`: A Three.js / React Three Fiber component rendered inside [`CanvasContainer`](file:///d:/Personal%20project/BeyondNest/src/components/scenes/CanvasContainer.tsx).
@@ -81,51 +93,54 @@ Every scene entry in `SCENE_REGISTRY` provides:
 
 ```ts
 export const SCENE_REGISTRY: Record<string, SceneConfig> = {
-  my_new_scene: {
+  destination_globe_scene: {
     renderScene: ({ answers, paused, reducedMotion }) => (
-      <My3DScene answers={answers} paused={paused} reducedMotion={reducedMotion} />
+      <DestinationGlobeScene answers={answers} paused={paused} reducedMotion={reducedMotion} />
     ),
     renderFallback: ({ answers }) => (
-      <MyStaticFallback answers={answers} />
+      <FallbackDestinationGlobe answers={answers} />
     )
   }
 }
 ```
 
-### 3D Coordinate Utilities and Camera-Facing Rotation Math
-Geographic conversions are isolated in [`src/components/scenes/shared/coordinates.ts`](file:///d:/Personal%20project/BeyondNest/src/components/scenes/shared/coordinates.ts):
-- `latLonToVector3(lat, lon, radius)`: Converts geographic latitude and longitude into 3D Cartesian coordinates (`THREE.Vector3`) matching Three.js `SphereGeometry` UV mapping.
-- `calculateGlobeTargetQuaternion(lat, lon)`: Computes an exact target rotation quaternion using orthonormal basis inversion. The target location $\hat{P}$ is rotated to `(0, 0, +R)` directly facing the camera at $+Z$, while the North Pole remains upright in $+Y$ with zero sideways roll ($\hat{N}' \cdot \hat{x} \approx 0$).
-- **Co-transformed Geometry and Pins:** In `GlobeMesh.tsx` and `CountryGlobeScene.tsx`, the globe geometry and location pin share the same rotating group transform. Consequently, pins remain rigidly anchored to their geographic coordinates during rotation and smoothly align with the camera using shortest-path quaternion slerp.
+### Shared 3D Theme & Coordinate Geometry
+- **Centralized Materials & Lighting:** [`src/config/theme3d.ts`](file:///d:/Personal%20project/BeyondNest/src/config/theme3d.ts) defines brand materials, roughness, metalness, and lighting palettes.
+- **Co-transformed Geometry and Pins:** In `GlobeMesh.tsx`, `CountryGlobeScene.tsx`, and `DestinationGlobeScene.tsx`, the globe geometry, location pins, and geodesic arcs share the same rotating group transform.
+- **Camera-Facing Quaternion Rotation:** Geographic coordinates are rotated directly to face the camera at $+Z$ via `calculateGlobeTargetQuaternion(lat, lon)` using shortest-path quaternion slerp.
 
 ---
 
-## 4. Canonical Country Dataset
+## 5. Canonical Datasets
 
-Country data is bundled locally in [`src/data/countries.ts`](file:///d:/Personal%20project/BeyondNest/src/data/countries.ts):
-- **Coverage:** 202 recognized sovereign countries and territories.
-- **Source:** ISO 3166-1 alpha-2, Natural Earth 1:110m populated places, and UN Geoscheme regional groupings.
-- **Coordinates:** Documented as representative capital/geographic locations, not exact boundaries.
-- **License:** Public Domain / Creative Commons CC0 1.0. No runtime network or external API dependency.
+1. **Residence & Destination Countries:** [`src/data/countries.ts`](file:///d:/Personal%20project/BeyondNest/src/data/countries.ts) (202 recognized countries and territories, ISO 3166-1 alpha-2, Natural Earth 1:110m vectors, UN Geoscheme).
+2. **Citizenship & Passports:** [`src/data/citizenships.ts`](file:///d:/Personal%20project/BeyondNest/src/data/citizenships.ts) (198 sovereign and passport-issuing authorities).
+3. **No External Runtime Fetch:** All geographical datasets are statically bundled and typed, guaranteeing zero network dependencies or external privacy leaks.
 
 ---
 
-## 5. State Management, Validation, and Recovery
+## 6. State Management, Schema Migration, and Persistence
 
 State is managed by [`src/store/onboardingStore.ts`](file:///d:/Personal%20project/BeyondNest/src/store/onboardingStore.ts):
-- **Schema Version:** Governed by `CURRENT_SCHEMA_VERSION = 1`.
-- **Validation on Restore:** Data loaded from `localStorage` (`beyondnest_onboarding_v1`) is validated by `validateAndSanitizeStoredState(raw)`:
-  - Country codes are validated against the canonical 202-country dataset; unknown or fabricated codes are stripped.
-  - Stored coordinates, names, and regions are restored from the canonical dataset rather than trusting stored copies.
-  - Completion status (`isCompleted`) is valid only when every required question has a valid answer; arbitrary truthy flags are rejected.
-  - Incomplete or malformed states automatically preserve valid answers and resume navigation at the first unanswered required question.
-  - Storage failures (e.g. `QuotaExceededError`) are caught gracefully and remain non-fatal.
-- **Selective Persistence:** Only onboarding responses and navigation progress are persisted locally. Sensitive data or user authentication is not collected in this milestone.
-- **Actions:** Pure, predictable dispatchers: `setAnswer`, `startOnboarding`, `goToNextQuestion`, `goToPreviousQuestion`, `editAnswer`, `resetOnboarding`.
+- **Schema Version:** Governed by `CURRENT_SCHEMA_VERSION = 2`.
+- **Storage Key:** `localStorage` key `beyondnest_onboarding_v2`.
+- **Version-1 Migration:**
+  - Automatically reads existing `beyondnest_onboarding_v1` payloads.
+  - Sanitizes valid v1 answers (`relocation_purpose`, `journey_stage`, `current_country`).
+  - **Invariant:** A Task 1 preview marked completed does *not* automatically complete the expanded onboarding. `isCompleted` is strictly reset to `false`, and navigation resumes at `citizenship` (the first new unanswered question).
+- **Validation on Restore:**
+  - Country and citizenship codes are validated against canonical datasets; unknown codes are stripped.
+  - Incomplete states clamp `currentQuestionId` to the first unanswered applicable question.
+  - Storage failures (e.g. quota limits) are caught gracefully and surfaced via `storageStatus: 'error'` with a non-blocking UI alert.
+- **Review Screen Editing & Guided Return:**
+  - `editAnswer(questionId)` sets `returnToReview = true` and navigates to the target question.
+  - If saving an edit preserves the branch, the user immediately returns to the review screen.
+  - If saving an edit opens a new required branch (e.g. changing purpose to Study or changing destination from undecided to a specific country), `goToNextQuestion` guides the user sequentially through the newly required questions before returning to review.
+- **Local Data Privacy:** All answers remain local in browser storage. No data is sent to servers or third-party analytics.
 
 ---
 
-## 5. Feature Flags
+## 7. Feature Flags
 
 Feature flags are declared in [`src/config/featureFlags.ts`](file:///d:/Personal%20project/BeyondNest/src/config/featureFlags.ts):
 
@@ -142,10 +157,12 @@ export const FEATURE_FLAGS = {
 
 ---
 
-## 6. Accessibility & Resilience Principles
+## 8. Accessibility & Resilience Principles
 
-1. **Screen Reader Separation:** The 3D canvas container is marked `aria-hidden="true"`. All user inputs use accessible native controls or full ARIA 1.2 combobox and radiogroup patterns.
-2. **Reduced Motion:** Checked via [`src/hooks/useReducedMotion.ts`](file:///d:/Personal%20project/BeyondNest/src/hooks/useReducedMotion.ts) and `@media (prefers-reduced-motion: reduce)`. Rotations, lerping, and animations are immediately simplified to static poses.
+1. **Screen Reader Separation:** The 3D canvas container is marked `aria-hidden="true"`. All user inputs use accessible native controls, ARIA 1.2 combobox, multi-select listbox, or radiogroup patterns.
+2. **Reduced Motion:** Checked via [`src/hooks/useReducedMotion.ts`](file:///d:/Personal%20project/BeyondNest/src/hooks/useReducedMotion.ts) and `@media (prefers-reduced-motion: reduce)`. Rotations, lerping, and 3D animations are immediately simplified to static poses.
 3. **Tab Visibility:** Pauses Three.js rendering loops when the browser tab is hidden using [`src/hooks/useDocumentVisibility.ts`](file:///d:/Personal%20project/BeyondNest/src/hooks/useDocumentVisibility.ts) to conserve battery and CPU.
 4. **Resolution Throttling:** The R3F Canvas limits DPR with `dpr={[1, 1.5]}` to prevent high-DPI mobile devices from overheating or dropping frames.
+5. **Zero Horizontal Overflow:** Desktop scene sits beside the question form; mobile view displays a compact scene above the question with responsive CSS layout.
+
 5. **Progressive Loading:** Bundles are chunk-split so core application HTML, CSS, and UI controls become interactive immediately, while 3D geometry renders inside a `<Suspense>` wrapper.

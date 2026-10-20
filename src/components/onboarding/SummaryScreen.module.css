@@ -5,7 +5,7 @@
   align-items: center;
   justify-content: center;
   width: 100%;
-  max-width: 860px;
+  max-width: 920px;
   margin: 0 auto;
   padding: var(--bn-space-8) var(--bn-space-6);
 }
@@ -41,6 +41,34 @@
   border: 3px solid var(--bn-color-teal-600);
 }
 
+.tagRight {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.storageBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: var(--bn-radius-full);
+}
+
+.storageSaved {
+  background-color: #ECFDF5;
+  color: #047857;
+  border: 1px solid #A7F3D0;
+}
+
+.storageError {
+  background-color: #FFFBEB;
+  color: #B45309;
+  border: 1px solid #FDE68A;
+}
+
 .milestoneBadge {
   display: inline-flex;
   align-items: center;
@@ -61,7 +89,7 @@
 }
 
 .headline {
-  font-size: 36px;
+  font-size: 34px;
   font-weight: 800;
   color: var(--bn-text-primary);
   letter-spacing: -0.02em;
@@ -73,18 +101,45 @@
   color: var(--bn-text-secondary);
 }
 
-/* Answers Summary Grid */
-.summaryList {
+/* Grouped Sections */
+.sectionsContainer {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.groupSection {
   display: flex;
   flex-direction: column;
   gap: 12px;
+}
+
+.groupHeader {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--bn-border-light);
+}
+
+.groupTitle {
+  font-family: var(--bn-font-display);
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--bn-color-navy-900);
+}
+
+.summaryList {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
 }
 
 .summaryItem {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 16px 20px;
+  padding: 14px 18px;
   border-radius: var(--bn-radius-lg);
   background-color: var(--bn-bg-subtle);
   border: 1px solid var(--bn-border-light);
@@ -100,12 +155,12 @@
 .itemLeft {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 14px;
 }
 
 .itemIcon {
-  width: 44px;
-  height: 44px;
+  width: 38px;
+  height: 38px;
   border-radius: var(--bn-radius-md);
   background-color: var(--bn-color-teal-50);
   border: 1px solid var(--bn-color-teal-200);
@@ -113,6 +168,7 @@
   align-items: center;
   justify-content: center;
   color: var(--bn-color-teal-700);
+  flex-shrink: 0;
 }
 
 .itemDetails {
@@ -131,24 +187,25 @@
 
 .itemValue {
   font-family: var(--bn-font-display);
-  font-size: 17px;
-  font-weight: 700;
+  font-size: 15px;
+  font-weight: 600;
   color: var(--bn-text-primary);
+  line-height: 1.4;
 }
 
 /* Extension Note */
 .roadmapBox {
-  padding: 16px 20px;
+  padding: 18px 22px;
   border-radius: var(--bn-radius-lg);
-  background: linear-gradient(135deg, rgba(224, 242, 254, 0.4), rgba(204, 251, 241, 0.4));
-  border: 1px solid rgba(13, 148, 136, 0.2);
+  background: linear-gradient(135deg, rgba(224, 242, 254, 0.5), rgba(204, 251, 241, 0.5));
+  border: 1px solid rgba(13, 148, 136, 0.25);
   display: flex;
   flex-direction: column;
   gap: 8px;
 }
 
 .roadmapTitle {
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 700;
   color: var(--bn-color-navy-900);
   display: flex;
@@ -157,7 +214,7 @@
 }
 
 .roadmapDesc {
-  font-size: 13px;
+  font-size: 14px;
   line-height: 1.5;
   color: var(--bn-text-secondary);
 }
@@ -173,13 +230,69 @@
   border-top: 1px solid var(--bn-border-light);
 }
 
+/* Confirmation Modal Overlay */
+.modalOverlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(15, 23, 42, 0.6);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  padding: 20px;
+}
+
+.modalCard {
+  background-color: #FFFFFF;
+  border-radius: var(--bn-radius-xl);
+  padding: 28px;
+  max-width: 440px;
+  width: 100%;
+  box-shadow: var(--bn-shadow-lg);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.modalHeader {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--bn-color-navy-950);
+}
+
+.modalTitle {
+  font-size: 20px;
+  font-weight: 700;
+  margin: 0;
+}
+
+.modalBody {
+  font-size: 14px;
+  color: var(--bn-text-secondary);
+  line-height: 1.5;
+  margin: 0;
+}
+
+.modalActions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 8px;
+}
+
 @media (max-width: 640px) {
   .card {
     padding: var(--bn-space-5);
   }
 
   .headline {
-    font-size: 26px;
+    font-size: 24px;
   }
 
   .actionsRow {
@@ -188,5 +301,9 @@
 
   .actionsRow button {
     width: 100%;
+  }
+
+  .summaryItem {
+    padding: 12px 14px;
   }
 }
