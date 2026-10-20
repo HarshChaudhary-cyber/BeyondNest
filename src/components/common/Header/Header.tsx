@@ -6,7 +6,7 @@ import styles from './Header.module.css'
 
 export interface HeaderProps {
   showReset?: boolean
-  onReset?: () => void
+  onReset?: (e?: React.MouseEvent<HTMLElement>) => void
   onLogoClick?: () => void
 }
 
@@ -40,8 +40,8 @@ export const Header: React.FC<HeaderProps> = ({
       </div>
 
       <div className={styles.actions}>
-        <div className={styles.milestonePill} title="Preview Milestone 1">
-          <span>🏷️ Milestone 1 Preview</span>
+        <div className={styles.milestonePill} title="Milestone 2 Adaptive">
+          <span>🏷️ Milestone 2 Adaptive</span>
         </div>
 
         {showReset && (
@@ -51,6 +51,7 @@ export const Header: React.FC<HeaderProps> = ({
             onClick={onReset}
             iconLeft={<RotateCcw size={14} />}
             aria-label={BRAND.navigation.startAgain}
+            id="header-start-again-button"
           >
             {BRAND.navigation.startAgain}
           </Button>

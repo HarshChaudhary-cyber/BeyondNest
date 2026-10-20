@@ -219,6 +219,9 @@ export interface StoredOnboardingState {
   answers: OnboardingAnswers
   currentQuestionId?: QuestionId
   isCompleted: boolean
+  isReviewEditing?: boolean
+  editingOriginQuestionId?: QuestionId | null
+  editNavigationHistory?: QuestionId[]
   storageStatus?: StorageStatus
 }
 

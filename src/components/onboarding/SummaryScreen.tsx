@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect } from 'react'
 import { 
   GraduationCap, 
   Briefcase, 
@@ -38,7 +38,7 @@ export interface SummaryScreenProps {
   answers: OnboardingAnswers
   storageStatus?: StorageStatus
   onEditAnswer: (questionId: QuestionId) => void
-  onStartAgain: () => void
+  onStartAgain: (trigger?: HTMLElement | null) => void
 }
 
 const MONTH_NAMES = [
@@ -53,7 +53,6 @@ export const SummaryScreen: React.FC<SummaryScreenProps> = ({
   onStartAgain,
 }) => {
   const prefersReducedMotion = useReducedMotion()
-  const [showConfirmReset, setShowConfirmReset] = useState(false)
 
   useEffect(() => {
     if (prefersReducedMotion) {
@@ -723,7 +722,7 @@ export const SummaryScreen: React.FC<SummaryScreenProps> = ({
           <Button
             variant="secondary"
             size="md"
-            onClick={() => setShowConfirmReset(true)}
+            onClick={(e) => onStartAgain(e.currentTarget)}
             iconLeft={<RotateCcw size={16} />}
             id="start-again-button"
           >
@@ -741,45 +740,6 @@ export const SummaryScreen: React.FC<SummaryScreenProps> = ({
           </Button>
         </div>
       </article>
-
-      {/* Confirmation Modal */}
-      {showConfirmReset && (
-        <div 
-          className={styles.modalOverlay} 
-          role="dialog" 
-          aria-modal="true" 
-          aria-labelledby="confirm-modal-title"
-        >
-          <div className={styles.modalCard}>
-            <div className={styles.modalHeader}>
-              <AlertTriangle size={24} color="#E11D48" />
-              <h3 id="confirm-modal-title" className={styles.modalTitle}>Reset your journey?</h3>
-            </div>
-            <p className={styles.modalBody}>
-              This will clear all your locally saved responses and return you to the welcome screen. This action cannot be undone.
-            </p>
-            <div className={styles.modalActions}>
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={() => setShowConfirmReset(false)}
-              >
-                Cancel
-              </Button>
-              <Button
-                variant="primary"
-                size="sm"
-                onClick={() => {
-                  setShowConfirmReset(false)
-                  onStartAgain()
-                }}
-              >
-                Reset everything
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
     </main>
   )
 }

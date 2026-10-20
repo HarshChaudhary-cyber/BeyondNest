@@ -28,6 +28,8 @@ import {
 import { findCountryByCode } from '../data/countries'
 import { findCitizenshipByCode } from '../data/citizenships'
 import { FEATURE_FLAGS } from '../config/featureFlags'
+import { validateMoveDate } from '../utils/dateValidation'
+import { validateLivingBudget } from '../utils/budgetValidation'
 
 export const STORAGE_KEY_V2 = 'beyondnest_onboarding_v2'
 export const STORAGE_KEY_V1 = 'beyondnest_onboarding_v1'
@@ -40,6 +42,9 @@ export const DEFAULT_INITIAL_STATE: StoredOnboardingState = {
   answers: {},
   currentQuestionId: QUESTIONS[0]?.id || 'relocation_purpose',
   isCompleted: false,
+  isReviewEditing: false,
+  editingOriginQuestionId: null,
+  editNavigationHistory: [],
   storageStatus: 'saved'
 }
 
@@ -102,14 +107,22 @@ export function applyDependencyInvalidation(
 
   // 2. Journey Stage changes
   if (questionId === 'journey_stage') {
-    if (newValue !== 'already_abroad') {
-      delete nextAnswers.origin_country_abroad
-    } else {
-      // If changed to already_abroad, remove travel booking from preparation if present
-      if (Array.isArray(nextAnswers.preparation_status)) {
-        nextAnswers.preparation_status = nextAnswers.preparation_status.filter(
-          item => item !== 'travel_booking'
-        )
+    if (prevAnswers.journey_stage !== newValue) {
+      if (nextAnswers.move_date) {
+        const dateCheck = validateMoveDate(nextAnswers.move_date, newValue as JourneyStage)
+        if (!dateCheck.valid) {
+          delete nextAnswers.move_date
+        }
+      }
+      if (newValue !== 'already_abroad') {
+        delete nextAnswers.origin_country_abroad
+      } else {
+        // If changed to already_abroad, remove travel booking from preparation if present
+        if (Array.isArray(nextAnswers.preparation_status)) {
+          nextAnswers.preparation_status = nextAnswers.preparation_status.filter(
+            item => item !== 'travel_booking'
+          )
+        }
       }
     }
   }
@@ -265,18 +278,19 @@ export function validateAndSanitizeStoredState(raw: unknown): StoredOnboardingSt
 
     // 9. Move Date
     if (typeof rawAnswers.move_date === 'object' && rawAnswers.move_date !== null) {
-      const rawDate = rawAnswers.move_date as { year?: unknown; month?: unknown; notSureYet?: unknown; preferNotToSay?: unknown }
-      if (rawDate.preferNotToSay === true) {
-        answers.move_date = { preferNotToSay: true }
-      } else if (rawDate.notSureYet === true) {
-        answers.move_date = { notSureYet: true }
-      } else if (
-        typeof rawDate.year === 'number' && 
-        typeof rawDate.month === 'number' && 
-        rawDate.month >= 1 && 
-        rawDate.month <= 12
-      ) {
-        answers.move_date = { year: rawDate.year, month: rawDate.month }
+      const dateCheck = validateMoveDate(rawAnswers.move_date, answers.journey_stage)
+      if (dateCheck.valid) {
+        const rawDate = rawAnswers.move_date as { year?: unknown; month?: unknown; notSureYet?: unknown; preferNotToSay?: unknown }
+        if (rawDate.preferNotToSay === true) {
+          answers.move_date = { preferNotToSay: true }
+        } else if (rawDate.notSureYet === true) {
+          answers.move_date = { notSureYet: true }
+        } else if (
+          typeof rawDate.year === 'number' && 
+          typeof rawDate.month === 'number'
+        ) {
+          answers.move_date = { year: rawDate.year, month: rawDate.month }
+        }
       }
     }
 
@@ -319,12 +333,15 @@ export function validateAndSanitizeStoredState(raw: unknown): StoredOnboardingSt
 
     // 14. Living Budget
     if (typeof rawAnswers.living_budget === 'object' && rawAnswers.living_budget !== null) {
-      const rawBgt = rawAnswers.living_budget as { currency?: unknown; amount?: unknown; helpEstimate?: unknown }
-      const cur = typeof rawBgt.currency === 'string' && rawBgt.currency.length > 0 ? rawBgt.currency : 'USD'
-      if (rawBgt.helpEstimate === true) {
-        answers.living_budget = { currency: cur, helpEstimate: true }
-      } else if (typeof rawBgt.amount === 'number' && !isNaN(rawBgt.amount) && rawBgt.amount > 0) {
-        answers.living_budget = { currency: cur, amount: rawBgt.amount }
+      const budgetCheck = validateLivingBudget(rawAnswers.living_budget)
+      if (budgetCheck.valid) {
+        const rawBgt = rawAnswers.living_budget as { currency?: unknown; amount?: unknown; helpEstimate?: unknown }
+        const cur = typeof rawBgt.currency === 'string' ? rawBgt.currency.toUpperCase() : 'USD'
+        if (rawBgt.helpEstimate === true) {
+          answers.living_budget = { currency: cur, helpEstimate: true }
+        } else if (typeof rawBgt.amount === 'number' && Number.isFinite(rawBgt.amount) && rawBgt.amount > 0) {
+          answers.living_budget = { currency: cur, amount: rawBgt.amount }
+        }
       }
     }
 
@@ -409,12 +426,26 @@ export function validateAndSanitizeStoredState(raw: unknown): StoredOnboardingSt
     }
   }
 
+  const isReviewEditing = typeof obj.isReviewEditing === 'boolean' ? obj.isReviewEditing : false
+  const editingOriginQuestionId = typeof obj.editingOriginQuestionId === 'string' && applicable.some(q => q.id === obj.editingOriginQuestionId)
+    ? (obj.editingOriginQuestionId as QuestionId)
+    : null
+  let editNavigationHistory = Array.isArray(obj.editNavigationHistory)
+    ? (obj.editNavigationHistory as string[]).filter((id): id is QuestionId => typeof id === 'string' && applicable.some(q => q.id === id))
+    : []
+  if (editNavigationHistory.length === 0 && editingOriginQuestionId) {
+    editNavigationHistory = [editingOriginQuestionId]
+  }
+
   return {
     version: CURRENT_SCHEMA_VERSION,
     updatedAt: typeof obj.updatedAt === 'string' ? obj.updatedAt : new Date().toISOString(),
     answers,
     currentQuestionId,
     isCompleted,
+    isReviewEditing: isCompleted ? false : isReviewEditing,
+    editingOriginQuestionId: isCompleted ? null : editingOriginQuestionId,
+    editNavigationHistory: isCompleted ? [] : editNavigationHistory,
     storageStatus: 'saved'
   }
 }
@@ -429,6 +460,9 @@ export function migrateV1State(rawV1: unknown): StoredOnboardingState {
   
   // Explicitly reset isCompleted to false
   sanitized.isCompleted = false
+  sanitized.isReviewEditing = false
+  sanitized.editingOriginQuestionId = null
+  sanitized.editNavigationHistory = []
   sanitized.version = CURRENT_SCHEMA_VERSION
   
   // Set currentQuestionId to first unanswered applicable question (e.g. citizenship)
@@ -514,7 +548,17 @@ export function clearPersistedState(): void {
  */
 export function useOnboardingStore() {
   const [persisted, setPersisted] = useState<StoredOnboardingState>(() => loadPersistedState())
-  const [isReviewEditing, setIsReviewEditing] = useState<boolean>(false)
+  const [isReviewEditing, setIsReviewEditing] = useState<boolean>(Boolean(persisted.isReviewEditing))
+  const [editingOriginQuestionId, setEditingOriginQuestionId] = useState<QuestionId | null>(persisted.editingOriginQuestionId || null)
+  const [editNavigationHistory, setEditNavigationHistory] = useState<QuestionId[]>(() => {
+    if (persisted.editNavigationHistory && persisted.editNavigationHistory.length > 0) {
+      return persisted.editNavigationHistory
+    }
+    if (persisted.editingOriginQuestionId) {
+      return [persisted.editingOriginQuestionId]
+    }
+    return []
+  })
   const [storageStatus, setStorageStatus] = useState<StorageStatus>(persisted.storageStatus || 'saved')
   const [validationError, setValidationError] = useState<string | null>(null)
 
@@ -556,16 +600,25 @@ export function useOnboardingStore() {
   }, [])
 
   const startOnboarding = useCallback(() => {
-    const firstId = applicableQuestions[0]?.id || QUESTIONS[0].id
-    setScreen({ type: 'question', questionId: firstId })
-    setIsReviewEditing(false)
+    if (persisted.isCompleted) {
+      setScreen({ type: 'summary' })
+      return
+    }
+    const firstUnanswered = getFirstUnansweredRequiredQuestionId(persisted.answers)
+    const targetId = persisted.currentQuestionId || firstUnanswered || applicableQuestions[0]?.id || QUESTIONS[0].id
+    setScreen({ type: 'question', questionId: targetId })
     setPersisted(prev => ({
       ...prev,
-      currentQuestionId: firstId,
+      currentQuestionId: targetId,
       isCompleted: false
     }))
     setValidationError(null)
-  }, [applicableQuestions])
+  }, [applicableQuestions, persisted.isCompleted, persisted.answers, persisted.currentQuestionId])
+
+  const navigateToWelcome = useCallback(() => {
+    setValidationError(null)
+    setScreen({ type: 'welcome' })
+  }, [])
 
   const goToNextQuestion = useCallback(() => {
     if (screen.type !== 'question') return
@@ -588,14 +641,31 @@ export function useOnboardingStore() {
       // If there are still unanswered required questions (e.g. branch change), navigate to the first one
       const unansweredId = getFirstUnansweredRequiredQuestionId(persisted.answers)
       if (unansweredId) {
+        const nextHistory = editNavigationHistory.includes(unansweredId)
+          ? editNavigationHistory
+          : [...editNavigationHistory, unansweredId]
+        setEditNavigationHistory(nextHistory)
         setScreen({ type: 'question', questionId: unansweredId })
-        setPersisted(prev => ({ ...prev, currentQuestionId: unansweredId }))
+        setPersisted(prev => ({ 
+          ...prev, 
+          currentQuestionId: unansweredId, 
+          isCompleted: false,
+          editNavigationHistory: nextHistory
+        }))
         return
       }
-      // Otherwise, return directly to summary review
+      // Otherwise, all applicable required questions are answered; return to summary review
       setIsReviewEditing(false)
+      setEditingOriginQuestionId(null)
+      setEditNavigationHistory([])
       setScreen({ type: 'summary' })
-      setPersisted(prev => ({ ...prev, isCompleted: true }))
+      setPersisted(prev => ({ 
+        ...prev, 
+        isCompleted: true, 
+        isReviewEditing: false, 
+        editingOriginQuestionId: null,
+        editNavigationHistory: []
+      }))
       return
     }
 
@@ -608,21 +678,63 @@ export function useOnboardingStore() {
       setScreen({ type: 'summary' })
       setPersisted(prev => ({ ...prev, isCompleted: true }))
     }
-  }, [screen, persisted.answers, isReviewEditing])
+  }, [screen, persisted.answers, isReviewEditing, editNavigationHistory])
 
   const goToPreviousQuestion = useCallback(() => {
     if (screen.type !== 'question') return
 
     setValidationError(null)
+    const prevId = getPreviousQuestionId(screen.questionId, persisted.answers)
 
-    // If review editing and user clicks back, return to summary
     if (isReviewEditing) {
-      setIsReviewEditing(false)
-      setScreen({ type: 'summary' })
+      // If we walked into a branch during editing (e.g. relocation_purpose -> work_status),
+      // popping the edit history navigates back along the edit path to the origin question
+      if (editNavigationHistory.length > 1) {
+        const nextHistory = editNavigationHistory.slice(0, -1)
+        const targetId = nextHistory[nextHistory.length - 1]
+        setEditNavigationHistory(nextHistory)
+        setScreen({ type: 'question', questionId: targetId })
+        setPersisted(prev => ({ 
+          ...prev, 
+          currentQuestionId: targetId, 
+          isCompleted: false,
+          editNavigationHistory: nextHistory 
+        }))
+        return
+      }
+
+      // We are at the origin of the edit session (editNavigationHistory has 0 or 1 item)
+      const allAnswered = areAllRequiredQuestionsAnswered(persisted.answers)
+      if (allAnswered) {
+        setIsReviewEditing(false)
+        setEditingOriginQuestionId(null)
+        setEditNavigationHistory([])
+        setScreen({ type: 'summary' })
+        setPersisted(prev => ({ 
+          ...prev, 
+          isCompleted: true, 
+          isReviewEditing: false, 
+          editingOriginQuestionId: null,
+          editNavigationHistory: []
+        }))
+        return
+      }
+
+      // If required answers are missing (e.g. user changed purpose to Work, work_status is missing,
+      // and user presses Back on relocation_purpose):
+      // NEVER show completed review. Navigate back in questionnaire if prevId exists, or to welcome.
+      if (prevId) {
+        setScreen({ type: 'question', questionId: prevId })
+        setPersisted(prev => ({ ...prev, currentQuestionId: prevId, isCompleted: false }))
+        return
+      }
+
+      // At start of questionnaire with missing required answers -> return to welcome, preserving edits
+      setScreen({ type: 'welcome' })
+      setPersisted(prev => ({ ...prev, isCompleted: false }))
       return
     }
 
-    const prevId = getPreviousQuestionId(screen.questionId, persisted.answers)
     if (prevId) {
       setScreen({ type: 'question', questionId: prevId })
       setPersisted(prev => ({ ...prev, currentQuestionId: prevId }))
@@ -630,18 +742,29 @@ export function useOnboardingStore() {
       // Back to welcome
       setScreen({ type: 'welcome' })
     }
-  }, [screen, persisted.answers, isReviewEditing])
+  }, [screen, persisted.answers, isReviewEditing, editNavigationHistory])
 
   const editAnswer = useCallback((questionId: QuestionId) => {
     setValidationError(null)
     setIsReviewEditing(true)
+    setEditingOriginQuestionId(questionId)
+    setEditNavigationHistory([questionId])
     setScreen({ type: 'question', questionId })
-    setPersisted(prev => ({ ...prev, currentQuestionId: questionId, isCompleted: false }))
+    setPersisted(prev => ({ 
+      ...prev, 
+      currentQuestionId: questionId, 
+      isCompleted: false,
+      isReviewEditing: true,
+      editingOriginQuestionId: questionId,
+      editNavigationHistory: [questionId]
+    }))
   }, [])
 
   const resetOnboarding = useCallback(() => {
     clearPersistedState()
     setIsReviewEditing(false)
+    setEditingOriginQuestionId(null)
+    setEditNavigationHistory([])
     setPersisted({ ...DEFAULT_INITIAL_STATE })
     setScreen({ type: 'welcome' })
     setValidationError(null)
@@ -672,11 +795,15 @@ export function useOnboardingStore() {
     validationError,
     storageStatus,
     isReviewEditing,
+    editingOriginQuestionId,
+    editNavigationHistory,
     setAnswer,
     startOnboarding,
+    navigateToWelcome,
     goToNextQuestion,
     goToPreviousQuestion,
     editAnswer,
     resetOnboarding
   }
 }
+

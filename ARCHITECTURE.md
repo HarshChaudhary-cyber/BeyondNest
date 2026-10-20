@@ -133,9 +133,16 @@ State is managed by [`src/store/onboardingStore.ts`](file:///d:/Personal%20proje
   - Incomplete states clamp `currentQuestionId` to the first unanswered applicable question.
   - Storage failures (e.g. quota limits) are caught gracefully and surfaced via `storageStatus: 'error'` with a non-blocking UI alert.
 - **Review Screen Editing & Guided Return:**
-  - `editAnswer(questionId)` sets `returnToReview = true` and navigates to the target question.
-  - If saving an edit preserves the branch, the user immediately returns to the review screen.
-  - If saving an edit opens a new required branch (e.g. changing purpose to Study or changing destination from undecided to a specific country), `goToNextQuestion` guides the user sequentially through the newly required questions before returning to review.
+  - `editAnswer(questionId)` activates `isReviewEditing = true`, records `editingOriginQuestionId`, and initializes the `editNavigationHistory` stack `[questionId]`.
+  - If saving an edit preserves existing requirements and all answers remain valid, the user immediately returns to the review screen.
+  - If saving an edit opens a new required branch (e.g. changing purpose from Study to Work or changing destination country), `goToNextQuestion` guides the user sequentially through the newly required questions, appending each to `editNavigationHistory`.
+  - **Back Navigation Semantics:** Pressing "Back" during review editing pops the `editNavigationHistory` stack, returning directly to the preceding question in the edit chain (e.g. from `work_status` back to `relocation_purpose`).
+  - **Review Invariant:** A completed review screen is *never* presented while applicable required questions are unanswered or invalid. If the user presses "Back" at the edit origin when answers are incomplete, the system steps back through regular question flow or returns to the welcome screen with `isCompleted: false`.
+- **Centralised Reset Confirmation Architecture:**
+  - Explicit reset requests from any trigger (Header "Start again" or Review "Start again") route through `handleRequestReset(trigger)` in `OnboardingShell.tsx`.
+  - Destructive reset operations (`resetOnboarding`) are strictly separated from requesting confirmation.
+  - Logo click (`onLogoClick`) executes `navigateToWelcome`, preserving all progress, state, and answers.
+  - Accessible `ConfirmResetDialog` enforces keyboard trapping, initial Cancel button focus, Escape cancellation, and focus restoration to the triggering control.
 - **Local Data Privacy:** All answers remain local in browser storage. No data is sent to servers or third-party analytics.
 
 ---

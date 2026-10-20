@@ -7,11 +7,11 @@ import type {
   CitizenshipAnswer,
   DestinationCountryAnswer,
   DestinationCityAnswer,
-  MoveDateAnswer,
   BackpackingDestinationsAnswer,
-  LivingBudgetAnswer,
   UniversityNameAnswer
 } from '../store/types'
+import { validateMoveDate } from '../utils/dateValidation'
+import { validateLivingBudget } from '../utils/budgetValidation'
 
 /**
  * BeyondNest Question Registry
@@ -332,43 +332,7 @@ export const QUESTIONS: QuestionDefinition[] = [
     type: 'date_select',
     sceneId: 'calendar_suitcase_scene',
     isRequired: true,
-    validate: (val, answers) => {
-      if (!val || typeof val !== 'object') {
-        return { valid: false, error: 'Please choose a date or select flexible options.' }
-      }
-      const ans = val as Partial<MoveDateAnswer>
-      const isAlreadyAbroad = answers?.journey_stage === 'already_abroad'
-
-      if (isAlreadyAbroad && ans.preferNotToSay) {
-        return { valid: true }
-      }
-      if (!isAlreadyAbroad && ans.notSureYet) {
-        return { valid: true }
-      }
-
-      if (!ans.year || !ans.month || ans.month < 1 || ans.month > 12) {
-        return { valid: false, error: 'Please select both a valid month and year.' }
-      }
-
-      // Local calendar boundaries
-      const now = new Date()
-      const currentYear = now.getFullYear()
-      const currentMonth = now.getMonth() + 1 // 1-indexed
-
-      if (isAlreadyAbroad) {
-        // Arrival month cannot be in the future
-        if (ans.year > currentYear || (ans.year === currentYear && ans.month > currentMonth)) {
-          return { valid: false, error: 'Arrival date cannot be in the future.' }
-        }
-      } else {
-        // Future move cannot be before current month
-        if (ans.year < currentYear || (ans.year === currentYear && ans.month < currentMonth)) {
-          return { valid: false, error: 'Planning date cannot be in the past.' }
-        }
-      }
-
-      return { valid: true }
-    }
+    validate: (val, answers) => validateMoveDate(val, answers?.journey_stage)
   },
 
   // 10. Stay Duration
@@ -560,17 +524,7 @@ export const QUESTIONS: QuestionDefinition[] = [
     type: 'budget_input',
     sceneId: 'budget_wallet_scene',
     isRequired: true,
-    validate: (val) => {
-      if (!val || typeof val !== 'object') {
-        return { valid: false, error: 'Please enter an estimated monthly budget or choose "Help me estimate".' }
-      }
-      const ans = val as Partial<LivingBudgetAnswer>
-      if (ans.helpEstimate === true) return { valid: true }
-      if (typeof ans.amount === 'number' && !isNaN(ans.amount) && ans.amount > 0 && typeof ans.currency === 'string' && ans.currency.length > 0) {
-        return { valid: true }
-      }
-      return { valid: false, error: 'Please enter a valid positive monthly amount or select "Help me estimate".' }
-    }
+    validate: (val) => validateLivingBudget(val)
   },
 
   // 15. Student Branch: Study Level

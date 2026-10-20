@@ -205,21 +205,56 @@
 
 ---
 
+---
+
+## 4. Task 2.1: Review Navigation, Reset Safety, and Validation
+
+### Corrections & Safeguards Implemented
+
+1. **Review Editing and Guided Back Navigation:**
+   - **Editing Semantics:** Defined consistent editing semantics where edits are retained and users are guided through any missing required answers created by branch or dependency changes.
+   - **Navigation History Stack:** Implemented `editNavigationHistory: QuestionId[]` in `useOnboardingStore` and `StoredOnboardingState`. When guided from an edit origin (e.g. `relocation_purpose`) to a newly required question (e.g. `work_status`), the path is tracked sequentially. Pressing "Back" pops the history stack and steps back to the preceding question in the edit chain (`relocation_purpose`), avoiding jumps to unrelated intermediate questions.
+   - **No Incomplete Review Exposure:** Ensured that Back navigation or review return *never* shows a completed review screen while applicable required answers are invalid or missing.
+   - **Refresh Recovery During Edits:** Stored editing state safely preserves `isReviewEditing`, `editingOriginQuestionId`, and `editNavigationHistory`. In `validateAndSanitizeStoredState`, any malformed payload attempting to mark `isCompleted: true` while required questions are unanswered is strictly forced to `isCompleted: false`, resuming at the current or first unanswered required question.
+
+2. **Centralised Reset Confirmation:**
+   - Centralized the reset confirmation flow in `OnboardingShell.tsx` for all explicit destructive reset actions (Header "Start again" and Summary "Start again").
+   - Logo navigation (`onLogoClick`) now cleanly navigates to the welcome screen (`navigateToWelcome`) while preserving all user progress and completed answers without triggering a reset.
+   - Clean separation of concerns: requesting a reset (`handleRequestReset(trigger)`) opens the dialog and stores the triggering element; the actual destructive reset (`resetOnboarding()`) executes only upon explicit user confirmation.
+
+3. **Accessible Confirmation Dialog (`ConfirmResetDialog`):**
+   - Implemented `ConfirmResetDialog.tsx` with accessible modal semantics (`role="alertdialog"`, `aria-modal="true"`, `aria-labelledby`, `aria-describedby`).
+   - Initial focus automatically moves to the safe control (**Cancel** button).
+   - Focus trap: keyboard focus stays inside the modal while open; Tab and Shift+Tab wrap between Cancel and Reset buttons.
+   - Dismissal: pressing `Escape` cancels the dialog and returns to the active flow.
+   - Interaction blocking: background content is disabled while the modal is active.
+   - Focus restoration: canceling restores keyboard focus back to the triggering button. Confirming resets storage and navigates to the welcome screen with focus moved to the primary call-to-action button.
+
+4. **Numeric and Saved Data Validation:**
+   - **Date Validation (`validateMoveDate`):** Enforces finite integers for year and month, valid month bounds ($1 \le \text{month} \le 12$), and documented sensible year limits:
+     - Planning movers: $\text{currentYear} \le \text{year} \le \text{currentYear} + 10$.
+     - Already abroad: $1950 \le \text{year} \le \text{currentYear}$.
+     - Local-calendar validation: current local calendar month is supported for both planning and arrival.
+   - **Budget Validation (`validateLivingBudget`):** Enforces finite positive amounts ($\text{amount} > 0$ and `Number.isFinite`), supported currency code from a shared currency registry (`src/data/currencies.ts`), and flexible decimal precision (not rigidly locked to two decimals).
+   - **Saved Data Sanitization & Invalidation:** In `validateAndSanitizeStoredState`, invalid or non-finite dates and malformed budget entries are stripped while preserving independent valid answers. Dependency invalidation automatically clears `destination_city` if the destination country changes, and invalidates `move_date` on `journey_stage` change if no longer valid.
+
+---
+
 ## 5. Validation Matrix
 
 | Check | Tool / Command | Result | Notes |
 |---|---|---|---|
-| **TypeScript Typecheck** | `npm run typecheck` (`tsc -b`) | **PASS** | 0 type errors across all code, components, and test files. |
-| **Linting** | `npm run lint` (`oxlint`) | **PASS** | 0 errors, 0 warnings across 71 files. |
-| **Unit & Integration Tests** | `npm test` (`vitest run`) | **PASS** | **66 passed tests across 7 test suites** (includes 26 comprehensive tests in `adaptiveOnboarding.test.tsx`). |
-| **Production Build** | `npm run build` (`vite build`) | **PASS** | Built in 965ms with clean chunk splitting and gzip compression. |
-| **Dev Server Execution** | `npm run dev` | **PASS** | Running smoothly on `http://localhost:5173/`. |
+| **TypeScript Typecheck** | `npm run typecheck` (`tsc -b`) | **PASS** | 0 type errors across all application and test files. |
+| **Linting** | `npm run lint` (`oxlint`) | **PASS** | 0 errors, 0 warnings across 76 files. |
+| **Unit & Integration Tests** | `npm test` (`vitest run`) | **PASS** | **85 passed tests across 8 test suites** (includes 19 focused tests in `reviewSafetyAndValidation.test.tsx`). |
+| **Production Build** | `npm run build` (`vite build`) | **PASS** | Built in 1.72s with clean chunk splitting and gzip compression. |
+| **Dev Server Execution** | `npm run dev` | **PASS** | Running on `http://localhost:5173/`. |
 
 ---
 
 ## 6. Limitations & Honest Reporting
 
-- **Automated Browser Subagent Driver Boundary:** Automated Playwright browser downloading continues to be blocked by an external CDN 404 response (`playwright.azureedge.net`) in this environment.
+- **Automated Browser Subagent Driver Boundary:** Automated Playwright browser downloading continues to be blocked by an external CDN 404 response (`playwright.azureedge.net`) in this environment. All user interactions, focus transitions, keyboard traps, and DOM accessibility are verified via testing-library and user-event integration tests.
 - **Physical WebGL GPU Pixel Boundary:** Automated tests verify DOM accessibility, ARIA compliance, user-event interaction order, blur dismissal guards, storage migration, and 3D coordinate mathematics. They do not prove GPU pixel output or hardware shader compilation on all physical devices.
 - **Recommendations Deferred:** No automated recommendation calculations, visa eligibility rules, or live web APIs are implemented in this milestone, in strict accordance with the task specification.
 

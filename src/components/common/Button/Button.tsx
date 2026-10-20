@@ -9,7 +9,7 @@ export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   fullWidth?: boolean
 }
 
-export const Button: React.FC<ButtonProps> = ({
+export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(({
   children,
   variant = 'primary',
   size = 'md',
@@ -19,9 +19,10 @@ export const Button: React.FC<ButtonProps> = ({
   className = '',
   style,
   ...rest
-}) => {
+}, ref) => {
   return (
     <button
+      ref={ref}
       className={`${styles.button} ${styles[variant]} ${styles[size]} ${className}`}
       style={{
         width: fullWidth ? '100%' : undefined,
@@ -34,4 +35,7 @@ export const Button: React.FC<ButtonProps> = ({
       {iconRight && <span className={styles.icon}>{iconRight}</span>}
     </button>
   )
-}
+})
+
+Button.displayName = 'Button'
+

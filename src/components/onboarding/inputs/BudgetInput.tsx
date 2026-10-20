@@ -1,5 +1,6 @@
 import React from 'react'
 import { Wallet, HelpCircle } from 'lucide-react'
+import { SUPPORTED_CURRENCIES } from '../../../data/currencies'
 import type { LivingBudgetAnswer } from '../../../store/types'
 import styles from './BudgetInput.module.css'
 
@@ -8,19 +9,6 @@ export interface BudgetInputProps {
   onChange: (value: LivingBudgetAnswer) => void
   error?: string
 }
-
-const COMMON_CURRENCIES = [
-  { code: 'USD', symbol: '$', name: 'US Dollar (USD)' },
-  { code: 'EUR', symbol: '€', name: 'Euro (EUR)' },
-  { code: 'GBP', symbol: '£', name: 'British Pound (GBP)' },
-  { code: 'CAD', symbol: 'CA$', name: 'Canadian Dollar (CAD)' },
-  { code: 'AUD', symbol: 'AU$', name: 'Australian Dollar (AUD)' },
-  { code: 'JPY', symbol: '¥', name: 'Japanese Yen (JPY)' },
-  { code: 'CHF', symbol: 'CHF', name: 'Swiss Franc (CHF)' },
-  { code: 'SGD', symbol: 'SG$', name: 'Singapore Dollar (SGD)' },
-  { code: 'NZD', symbol: 'NZ$', name: 'New Zealand Dollar (NZD)' },
-  { code: 'INR', symbol: '₹', name: 'Indian Rupee (INR)' }
-]
 
 export const BudgetInput: React.FC<BudgetInputProps> = ({
   value = { currency: 'USD' },
@@ -52,7 +40,7 @@ export const BudgetInput: React.FC<BudgetInputProps> = ({
     const parsed = parseFloat(raw)
     onChange({
       currency,
-      amount: isNaN(parsed) ? undefined : parsed,
+      amount: isNaN(parsed) || !Number.isFinite(parsed) ? undefined : parsed,
       helpEstimate: false
     })
   }
@@ -78,8 +66,8 @@ export const BudgetInput: React.FC<BudgetInputProps> = ({
             disabled={isHelpEstimate}
             className={`${styles.select} ${isHelpEstimate ? styles.disabledControl : ''}`}
           >
-            {COMMON_CURRENCIES.map(c => (
-              <option key={c.code} value={c.code}>{c.code} ({c.symbol})</option>
+            {SUPPORTED_CURRENCIES.map(c => (
+              <option key={c.code} value={c.code}>{c.code} ({c.symbol}) - {c.name}</option>
             ))}
           </select>
         </div>

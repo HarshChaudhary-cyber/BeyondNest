@@ -1,5 +1,6 @@
-import React from 'react'
+import React, { useState } from 'react'
 import { Header } from '../common/Header/Header'
+import { ConfirmResetDialog } from '../common/ConfirmResetDialog/ConfirmResetDialog'
 import { WelcomeScreen } from './WelcomeScreen'
 import { QuestionScreen } from './QuestionScreen'
 import { SummaryScreen } from './SummaryScreen'
@@ -20,20 +21,29 @@ export const OnboardingShell: React.FC = () => {
     storageStatus,
     setAnswer,
     startOnboarding,
+    navigateToWelcome,
     goToNextQuestion,
     goToPreviousQuestion,
     editAnswer,
     resetOnboarding
   } = useOnboardingStore()
 
+  const [isResetDialogOpen, setIsResetDialogOpen] = useState(false)
+  const [resetTriggerElement, setResetTriggerElement] = useState<HTMLElement | null>(null)
+
   const isFlowActive = screen.type === 'question' || screen.type === 'summary'
+
+  const handleRequestReset = (trigger?: HTMLElement | null) => {
+    setResetTriggerElement(trigger || (document.activeElement as HTMLElement | null))
+    setIsResetDialogOpen(true)
+  }
 
   return (
     <div className={styles.shell}>
       <Header 
         showReset={isFlowActive} 
-        onReset={resetOnboarding}
-        onLogoClick={resetOnboarding}
+        onReset={(e) => handleRequestReset(e?.currentTarget)}
+        onLogoClick={navigateToWelcome}
       />
 
       <div className={styles.mainContent}>
@@ -62,10 +72,22 @@ export const OnboardingShell: React.FC = () => {
             answers={answers}
             storageStatus={storageStatus}
             onEditAnswer={editAnswer}
-            onStartAgain={resetOnboarding}
+            onStartAgain={handleRequestReset}
           />
         )}
       </div>
+
+      <ConfirmResetDialog
+        isOpen={isResetDialogOpen}
+        triggerElement={resetTriggerElement}
+        onConfirm={() => {
+          setIsResetDialogOpen(false)
+          resetOnboarding()
+        }}
+        onCancel={() => {
+          setIsResetDialogOpen(false)
+        }}
+      />
 
       <footer className={styles.footer}>
         <span>© {CURRENT_YEAR} {BRAND.name}. {BRAND.tagline}</span>
