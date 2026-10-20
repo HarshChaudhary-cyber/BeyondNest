@@ -30,6 +30,10 @@ export function validateAndSanitizeStoredPlan(raw: unknown): StoredPlanState {
     ? obj.destinationCode
     : undefined
 
+  const destinationState = typeof obj.destinationState === 'string' && obj.destinationState.length > 0
+    ? obj.destinationState
+    : (destinationCode || (typeof obj.destinationCode === 'undefined' ? 'UNDECIDED' : undefined))
+
   const tasks: Record<string, PlanTaskRecord> = {}
 
   if (obj.tasks && typeof obj.tasks === 'object') {
@@ -67,6 +71,7 @@ export function validateAndSanitizeStoredPlan(raw: unknown): StoredPlanState {
     version: CURRENT_PLAN_SCHEMA_VERSION,
     updatedAt: typeof obj.updatedAt === 'string' ? obj.updatedAt : new Date().toISOString(),
     destinationCode,
+    destinationState,
     tasks,
     invalidatedTasks
   }

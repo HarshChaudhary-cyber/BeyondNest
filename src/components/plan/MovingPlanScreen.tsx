@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback } from 'react'
+import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react'
 import { 
   CheckCircle2, 
   Circle, 
@@ -11,10 +11,11 @@ import {
   Info, 
   ArrowLeft, 
   Check, 
-  Sparkles,
-  BookOpen,
-  FileCheck2,
-  AlertTriangle
+  Sparkles, 
+  BookOpen, 
+  FileCheck2, 
+  AlertTriangle,
+  RefreshCw
 } from 'lucide-react'
 import type { OnboardingAnswers, StorageStatus, QuestionId } from '../../store/types'
 import type { JourneyPhase, TaskCategory, StoredPlanState } from '../../planning/types'
@@ -24,6 +25,8 @@ import { Button } from '../common/Button/Button'
 import { ExpenseWorksheet } from './ExpenseWorksheet'
 import { FallbackPackingSuitcase } from '../scenes/fallbacks/Task2Fallbacks'
 import styles from './MovingPlanScreen.module.css'
+
+export type PlanStorageState = 'saved' | 'in-memory-only' | 'pending'
 
 export interface MovingPlanScreenProps {
   answers: OnboardingAnswers
@@ -53,6 +56,7 @@ const PHASE_NAMES: Record<JourneyPhase, string> = {
 
 function hasReconciledDifferences(a: StoredPlanState, b: StoredPlanState): boolean {
   if (a.destinationCode !== b.destinationCode) return true
+  if (a.destinationState !== b.destinationState) return true
   if ((a.invalidatedTasks?.length ?? 0) !== (b.invalidatedTasks?.length ?? 0)) return true
   const aKeys = Object.keys(a.tasks)
   const bKeys = Object.keys(b.tasks)
@@ -66,41 +70,59 @@ function hasReconciledDifferences(a: StoredPlanState, b: StoredPlanState): boole
 
 export const MovingPlanScreen: React.FC<MovingPlanScreenProps> = ({
   answers,
-  storageStatus = 'saved',
   onEditProfile,
   onReturnToReview,
   onStartAgain
 }) => {
-  // Load and reconcile plan state on initial mount
-  const [storedProgress, setStoredProgress] = useState<StoredPlanState>(() => {
+  // Purely load and reconcile plan state on initial mount without render-time writes
+  const [initialData] = useState(() => {
     const loaded = loadPlanProgress()
     const { updatedProgress } = generatePersonalisedPlan(answers, loaded)
-    if (hasReconciledDifferences(loaded, updatedProgress)) {
-      savePlanProgress(updatedProgress)
-      return updatedProgress
+    const hasDiff = hasReconciledDifferences(loaded, updatedProgress)
+    return {
+      progress: updatedProgress,
+      isClean: !hasDiff && Object.keys(loaded.tasks).length > 0
     }
-    return loaded
   })
 
-  // Synchronize state directly when answers prop changes
+  const [storedProgress, setStoredProgress] = useState<StoredPlanState>(initialData.progress)
+
+  // Synchronize state purely when answers prop changes
   const [prevAnswers, setPrevAnswers] = useState(answers)
   if (answers !== prevAnswers) {
     setPrevAnswers(answers)
     const { updatedProgress } = generatePersonalisedPlan(answers, storedProgress)
-    if (hasReconciledDifferences(storedProgress, updatedProgress)) {
-      savePlanProgress(updatedProgress)
-      setStoredProgress(updatedProgress)
-    }
+    setStoredProgress(updatedProgress)
   }
 
   const [activeTab, setActiveTab] = useState<'all' | JourneyPhase>('all')
   const [expandedTasks, setExpandedTasks] = useState<Record<string, boolean>>({})
-  const [planSaveStatus, setPlanSaveStatus] = useState<StorageStatus>(() => storageStatus)
+  // Storage badge is strictly managed by actual plan save results, never initialized from onboarding status
+  const [planSaveStatus, setPlanSaveStatus] = useState<PlanStorageState>(initialData.isClean ? 'saved' : 'pending')
 
-  // Re-generate plan from currently reconciled progress
+  // Re-generate plan from currently reconciled progress purely
   const { plan } = useMemo(() => {
     return generatePersonalisedPlan(answers, storedProgress)
   }, [answers, storedProgress])
+
+  // Track the last successfully persisted state JSON to prevent infinite loops and duplicate writes
+  const lastPersistedJsonRef = useRef<string | null>(initialData.isClean ? JSON.stringify(initialData.progress) : null)
+
+  // Asynchronous committed persistence in an effect after committed state changes
+  useEffect(() => {
+    const currentJson = JSON.stringify(storedProgress)
+    if (lastPersistedJsonRef.current === currentJson) {
+      return
+    }
+
+    const ok = savePlanProgress(storedProgress)
+    if (ok) {
+      lastPersistedJsonRef.current = currentJson
+      queueMicrotask(() => setPlanSaveStatus('saved'))
+    } else {
+      queueMicrotask(() => setPlanSaveStatus('in-memory-only'))
+    }
+  }, [storedProgress])
 
   // Toggle task completion from current reconciled task state (guarantees 1-click completion)
   const handleToggleTask = useCallback((taskId: string) => {
@@ -114,6 +136,7 @@ export const MovingPlanScreen: React.FC<MovingPlanScreenProps> = ({
       version: CURRENT_PLAN_SCHEMA_VERSION,
       updatedAt: nowIso,
       destinationCode: plan.destinationCode,
+      destinationState: plan.isUndecided ? 'UNDECIDED' : (plan.destinationCode || 'UNKNOWN'),
       tasks: {
         ...storedProgress.tasks,
         [taskId]: {
@@ -124,8 +147,14 @@ export const MovingPlanScreen: React.FC<MovingPlanScreenProps> = ({
       }
     }
 
+    const nextJson = JSON.stringify(nextProgress)
     const ok = savePlanProgress(nextProgress)
-    setPlanSaveStatus(ok ? 'saved' : 'error')
+    if (ok) {
+      lastPersistedJsonRef.current = nextJson
+      setPlanSaveStatus('saved')
+    } else {
+      setPlanSaveStatus('in-memory-only')
+    }
     setStoredProgress(nextProgress)
   }, [plan, storedProgress])
 
@@ -157,12 +186,27 @@ export const MovingPlanScreen: React.FC<MovingPlanScreenProps> = ({
         <div className={styles.luggageHeader}>
           <div className={styles.luggageEyelet} aria-hidden="true" />
           <div className={styles.headerMeta}>
-            <span className={`${styles.storageBadge} ${planSaveStatus === 'saved' ? styles.storageSaved : styles.storageWarning}`} role="status">
-              {planSaveStatus === 'saved' ? (
+            <span
+              className={`${styles.storageBadge} ${
+                planSaveStatus === 'saved'
+                  ? styles.storageSaved
+                  : planSaveStatus === 'pending'
+                    ? styles.storagePending
+                    : styles.storageWarning
+              }`}
+              role="status"
+            >
+              {planSaveStatus === 'saved' && (
                 <>
                   <Check size={14} /> Saved to browser storage
                 </>
-              ) : (
+              )}
+              {planSaveStatus === 'pending' && (
+                <>
+                  <RefreshCw size={14} className={styles.spin} /> Saving changes...
+                </>
+              )}
+              {planSaveStatus === 'in-memory-only' && (
                 <>
                   <AlertTriangle size={14} /> In-memory only (storage unavailable)
                 </>
@@ -218,6 +262,15 @@ export const MovingPlanScreen: React.FC<MovingPlanScreenProps> = ({
             <Info size={18} className={styles.changeNoticeIcon} />
             <div className={styles.changeNoticeContent}>
               <strong>Profile Update Detected:</strong> {plan.materialChangeNotice}
+            </div>
+          </div>
+        )}
+
+        {planSaveStatus === 'in-memory-only' && (
+          <div className={styles.storageWarningBox} role="alert">
+            <AlertTriangle size={18} className={styles.warningIcon} />
+            <div className={styles.warningContent}>
+              <strong>Storage Unavailable:</strong> Plan changes could not be saved to your browser storage. Your progress is maintained in memory for this session, but will be lost if you refresh.
             </div>
           </div>
         )}

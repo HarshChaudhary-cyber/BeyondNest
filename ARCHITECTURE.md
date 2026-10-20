@@ -265,4 +265,19 @@ The confirmation reset dialog implements strict top-layer modal isolation:
 5. **Comprehensive Reset Cleanup:**
    - Explicit confirmation of "Reset everything" clears all 4 BeyondNest storage keys: `beyondnest_onboarding_v2`, `beyondnest_onboarding_v1`, `beyondnest_moving_plan_v1`, and `beyondnest_expense_worksheet_v1`.
 
+### Task 3.2: Destination Context State & Out-of-Render Persistence
+1. **Explicit Destination Transitions & Resurrection Prevention:**
+   - Tracks `destinationState` ('UNDECIDED' | countryCode) and `destinationCode` in `StoredPlanState`.
+   - Transitions between concrete destinations and undecided states explicitly invalidate tasks for the left destination.
+   - Cleans up inactive historical records belonging to other destinations, preventing completion resurrection across multi-step destination loops (e.g. Germany → undecided → Canada → Germany, or Germany → undecided → Germany).
+   - Independent general tasks without country dependency preserve their completion throughout transitions.
+2. **Pure Render & Out-of-Render Persistence:**
+   - Removed all render-phase writes to localStorage in `MovingPlanScreen.tsx`.
+   - Plan generation and reconciliation are 100% pure computations.
+   - Persistence happens after committed state updates via `useEffect`, guarded by `lastPersistedJsonRef` to avoid infinite loops, duplicate invalidation notices, and cascading renders. Task completion toggles persist directly in their event callback handler.
+3. **Honest Storage Status & Failure Warning:**
+   - Plan storage indicator is decoupled from onboarding status; derives strictly from actual write results (`'saved' | 'in-memory-only' | 'pending'`).
+   - Displays clear warning alert (`role="alert"`) when storage is restricted, preserving full in-memory usability.
+   - Recovers to `'saved'` automatically upon subsequent successful writes.
+
 

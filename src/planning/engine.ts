@@ -1,4 +1,4 @@
-import type { OnboardingAnswers } from '../store/types'
+import type { OnboardingAnswers, DestinationCountryAnswer } from '../store/types'
 import type { 
   MovingPlan, 
   PersonalisedTask, 
@@ -27,6 +27,40 @@ function resolveText(
   return prop
 }
 
+/**
+ * Determines whether a task belongs specifically to a given country code (e.g. 'DE', 'CA').
+ */
+export function isTaskSpecificToCountry(taskId: string, contextKey: string, countryCode: string): boolean {
+  const upper = countryCode.toUpperCase()
+  const lower = countryCode.toLowerCase()
+  return (
+    taskId.startsWith(`${lower}_`) ||
+    contextKey.startsWith(`dest:${upper}|`) ||
+    contextKey.includes(`dest:${upper}|`) ||
+    contextKey.endsWith(`dest:${upper}`)
+  )
+}
+
+/**
+ * Determines whether a task is destination-specific to any concrete country pack.
+ */
+export function isAnyCountrySpecificTask(taskId: string, contextKey: string): boolean {
+  if (taskId.startsWith('de_') || taskId.startsWith('ca_')) {
+    return true
+  }
+  if (/^[a-z]{2}_/i.test(taskId) && !taskId.startsWith('ge_') && !taskId.startsWith('sp_') && !taskId.startsWith('re_')) {
+    return true
+  }
+  const match = contextKey.match(/dest:([A-Za-z0-9_]+)/)
+  if (match) {
+    const val = match[1]
+    if (val.length === 2 && val === val.toUpperCase()) {
+      return true
+    }
+  }
+  return false
+}
+
 export interface EngineResult {
   plan: MovingPlan
   updatedProgress: StoredPlanState
@@ -41,10 +75,10 @@ export function generatePersonalisedPlan(
   storedProgress: StoredPlanState = DEFAULT_PLAN_STATE
 ): EngineResult {
   // 1. Determine destination status and matching pack
-  const destCountry = answers.destination_country
-  const isUndecided = Boolean(destCountry && 'explore' in destCountry && destCountry.explore)
-  const destCode = destCountry && 'code' in destCountry ? destCountry.code : undefined
-  const destName = destCountry && 'name' in destCountry ? destCountry.name : undefined
+  const rawDest = (answers.destination_country || (answers as Record<string, unknown>).destination) as DestinationCountryAnswer | undefined
+  const isUndecided = Boolean(rawDest && 'explore' in rawDest && rawDest.explore)
+  const destCode = rawDest && 'code' in rawDest ? rawDest.code : undefined
+  const destName = rawDest && 'name' in rawDest ? rawDest.name : undefined
 
   let destinationTitle = 'Your destination'
   if (isUndecided) {
@@ -84,18 +118,86 @@ export function generatePersonalisedPlan(
   const updatedTasksMap: Record<string, PlanTaskRecord> = { ...storedProgress.tasks }
   const newlyInvalidated: Array<{ taskId: string; taskTitle: string; reason: string }> = []
 
-  // Check if destination changed: invalidate tasks tied to previous destination
-  if (storedProgress.destinationCode && destCode && storedProgress.destinationCode !== destCode) {
-    const oldDest = storedProgress.destinationCode
-    for (const [tId, record] of Object.entries(updatedTasksMap)) {
-      if (record.contextKey.includes(`dest:${oldDest}`) || tId.startsWith(`${oldDest.toLowerCase()}_`)) {
-        if (record.completed) {
-          newlyInvalidated.push({
-            taskId: tId,
-            taskTitle: tId,
-            reason: `Destination changed from ${oldDest} to ${destCode}.`
-          })
+  const recordInvalidation = (taskId: string, taskTitle: string, reason: string) => {
+    if (!newlyInvalidated.some(item => item.taskId === taskId)) {
+      newlyInvalidated.push({ taskId, taskTitle, reason })
+    }
+  }
+
+  // Determine current and previous destination states
+  const currentDestState = isUndecided ? 'UNDECIDED' : (destCode || 'UNKNOWN')
+  let previousDestState: string | undefined = storedProgress.destinationState
+  if (!previousDestState) {
+    if (storedProgress.destinationCode) {
+      previousDestState = storedProgress.destinationCode
+    } else if (Object.keys(storedProgress.tasks).length > 0) {
+      previousDestState = 'UNDECIDED'
+    }
+  }
+
+  const isDestinationTransition = previousDestState !== undefined && previousDestState !== currentDestState
+
+  // Explicit transitions between concrete destinations and undecided states
+  if (isDestinationTransition) {
+    // 1. If we left a concrete destination (e.g. 'DE' or 'CA'), invalidate all tasks specific to that destination
+    if (previousDestState && previousDestState !== 'UNDECIDED' && previousDestState !== 'UNKNOWN') {
+      const oldCode = previousDestState
+      for (const [tId, record] of Object.entries(updatedTasksMap)) {
+        if (isTaskSpecificToCountry(tId, record.contextKey, oldCode)) {
+          if (record.completed) {
+            recordInvalidation(
+              tId,
+              tId,
+              `Destination changed from ${oldCode} to ${isUndecided ? 'exploring destinations' : currentDestState}.`
+            )
+          }
+          updatedTasksMap[tId] = {
+            ...record,
+            completed: false
+          }
         }
+      }
+    }
+
+    // 2. Invalidate affected records when entering undecided
+    if (currentDestState === 'UNDECIDED') {
+      for (const [tId, record] of Object.entries(updatedTasksMap)) {
+        if (isAnyCountrySpecificTask(tId, record.contextKey)) {
+          if (record.completed) {
+            recordInvalidation(tId, tId, 'Exploring destinations: specific destination tasks invalidated.')
+          }
+          updatedTasksMap[tId] = {
+            ...record,
+            completed: false
+          }
+        }
+      }
+    }
+
+    // 3. Invalidate inactive historical records from any other destination
+    if (destCode) {
+      for (const [tId, record] of Object.entries(updatedTasksMap)) {
+        if (isAnyCountrySpecificTask(tId, record.contextKey) && !isTaskSpecificToCountry(tId, record.contextKey, destCode)) {
+          updatedTasksMap[tId] = {
+            ...record,
+            completed: false
+          }
+        }
+      }
+    }
+  }
+
+  // Always ensure inactive historical records from outside the current context cannot remain completed
+  for (const [tId, record] of Object.entries(updatedTasksMap)) {
+    if (isUndecided) {
+      if (isAnyCountrySpecificTask(tId, record.contextKey) && record.completed) {
+        updatedTasksMap[tId] = {
+          ...record,
+          completed: false
+        }
+      }
+    } else if (destCode) {
+      if (isAnyCountrySpecificTask(tId, record.contextKey) && !isTaskSpecificToCountry(tId, record.contextKey, destCode) && record.completed) {
         updatedTasksMap[tId] = {
           ...record,
           completed: false
@@ -227,6 +329,7 @@ export function generatePersonalisedPlan(
     version: storedProgress.version || 1,
     updatedAt: new Date().toISOString(),
     destinationCode: destCode,
+    destinationState: currentDestState,
     tasks: updatedTasksMap,
     invalidatedTasks: newlyInvalidated.length > 0 
       ? [...newlyInvalidated, ...(storedProgress.invalidatedTasks || [])].slice(0, 5)

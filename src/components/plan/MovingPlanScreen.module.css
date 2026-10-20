@@ -58,8 +58,25 @@
   color: var(--bn-color-teal-700);
 }
 
+.storagePending {
+  color: var(--bn-text-muted);
+}
+
 .storageWarning {
   color: #D97706;
+}
+
+.spin {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .planBadge {
@@ -195,6 +212,25 @@
 }
 
 .changeNoticeIcon {
+  color: #D97706;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.storageWarningBox {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  background-color: #FFFBEB;
+  border: 1px solid #FCD34D;
+  border-radius: var(--bn-radius-lg);
+  padding: 12px 16px;
+  color: #B45309;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.warningIcon {
   color: #D97706;
   flex-shrink: 0;
   margin-top: 2px;

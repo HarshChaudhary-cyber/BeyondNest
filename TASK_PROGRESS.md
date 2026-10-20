@@ -342,10 +342,10 @@ All linked resources are official government or institutional bodies reviewed fo
 
 | Check | Tool / Command | Result | Notes |
 |---|---|---|---|
-| **TypeScript Typecheck** | `npm run typecheck` (`tsc -b`) | **PASS** | 0 type errors across all application, planning engine, and test files. |
-| **Linting** | `npm run lint` (`oxlint`) | **PASS** | 0 errors, 0 warnings across all 92 source files. |
-| **Unit & Integration Tests** | `npm test` (`vitest run`) | **PASS** | **116 passed tests across 10 test suites** (100% pass rate; includes 15 focused tests in `planningCorrections.test.tsx` and 16 in `movingPlan.test.tsx`). |
-| **Production Build** | `npm run build` (`vite build`) | **PASS** | Built in 1.02s with clean chunk splitting and gzip compression. |
+| **TypeScript Typecheck** | `npm run typecheck` (`tsc -b`) | **PASS** | 0 type errors across all application, planning engine, storage, and test files. |
+| **Linting** | `npm run lint` (`oxlint`) | **PASS** | 0 errors, 0 warnings across all 93 source files. |
+| **Unit & Integration Tests** | `npm test` (`vitest run`) | **PASS** | **125 passed tests across 11 test suites** (100% pass rate; includes 9 in `planningPersistenceGaps.test.tsx`, 15 in `planningCorrections.test.tsx`, and 16 in `movingPlan.test.tsx`). |
+| **Production Build** | `npm run build` (`vite build`) | **PASS** | Built in 1.05s with clean chunk splitting and gzip compression. |
 | **Reset Dialog Isolation** | `movingPlan.test.tsx` (Test 14) | **PASS** | Verified `inert` and `aria-hidden` attributes applied to background while dialog is active. |
 
 ---
@@ -394,6 +394,37 @@ All linked resources are official government or institutional bodies reviewed fo
 
 5. **Reset Confirmation Clears All Data Stores:**
    - `clearPersistedState()` removes all 4 BeyondNest storage keys: `beyondnest_onboarding_v2`, `beyondnest_onboarding_v1`, `beyondnest_moving_plan_v1`, and `beyondnest_expense_worksheet_v1`.
+
+---
+
+## 10. Task 3.2: Close Remaining Plan-Persistence Gaps
+
+### Corrections & Safeguards Implemented
+
+1. **Preventing Completion Resurrection Across Destination Transitions:**
+   - **Explicit Destination Context Transitions:** Defined clear transitions between concrete destinations (e.g. 'DE', 'CA') and undecided exploring states (`explore: true`). Tracked `destinationState` and `destinationCode` in `StoredPlanState`.
+   - **Leaving Context Invalidation:** When transitioning from a concrete destination to undecided or another destination, all destination-specific tasks for the abandoned destination are invalidated (`completed: false`) and recorded in `newlyInvalidated`.
+   - **Inactive Historical Record Cleanup:** When entering undecided mode, all country-specific tasks are guaranteed `completed: false`. When entering a concrete destination, any inactive historical records belonging to other countries are invalidated.
+   - **No Resurrection Guarantee:** Verified through regression tests for:
+     - Germany → undecided → Canada → Germany (housing remains incomplete; completes in 1 click).
+     - Germany → undecided → Germany (housing remains incomplete).
+     - Direct destination change: Germany → Canada → Germany (housing remains incomplete).
+     - Browser refresh between each intermediate transition step (valid completions preserved, invalidated tasks never resurrect).
+   - **Preservation of Independent General Tasks:** Genuinely unchanged general tasks (e.g. `gen_vital_documents`) do not depend on destination country code and preserve completion across destination switches.
+
+2. **Removing Render-Time Storage Writes:**
+   - Removed calls to `savePlanProgress` inside `useState` initializers and inside the `answers !== prevAnswers` render check in `MovingPlanScreen.tsx`.
+   - Plan generation and reconciliation in `MovingPlanScreen` are 100% pure computations.
+   - Persistence occurs exclusively after committed state changes in a `useEffect`, guarded by `lastPersistedJsonRef` to eliminate cascading renders, infinite loops, and duplicate invalidation notices.
+   - Task completion toggling persists directly in its event callback handler (`handleToggleTask`), keeping render cycles pure and immediate.
+   - Verified clean behaviour under `React.StrictMode` and component remounts.
+
+3. **Honest Storage Status & Failure Reporting:**
+   - Plan storage indicator is decoupled from onboarding status; `planSaveStatus` represents actual plan persistence (`'saved' | 'in-memory-only' | 'pending'`).
+   - If initial reconciliation or profile-change writes fail (e.g. QuotaExceededError or disabled localStorage), `planSaveStatus` transitions to `'in-memory-only'`.
+   - Clear warning banner (`role="alert"`) is displayed: *"Storage Unavailable: Plan changes could not be saved to your browser storage. Your progress is maintained in memory for this session, but will be lost if you refresh."*
+   - Usable plan progress remains fully functional in memory.
+   - A subsequent successful write (e.g. on task toggle or recovered storage) automatically clears the warning alert and updates the badge to *"Saved to browser storage"*.
 
 
 

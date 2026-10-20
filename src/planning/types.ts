@@ -83,6 +83,7 @@ export interface StoredPlanState {
   version: number
   updatedAt: string
   destinationCode?: string
+  destinationState?: string
   tasks: Record<string, PlanTaskRecord>
   invalidatedTasks?: Array<{
     taskId: string
