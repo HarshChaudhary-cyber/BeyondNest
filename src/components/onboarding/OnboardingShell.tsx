@@ -88,6 +88,7 @@ export const OnboardingShell: React.FC = () => {
           {screen.type === 'plan' && (
             <MovingPlanScreen
               answers={answers}
+              storageStatus={storageStatus}
               onEditProfile={navigateToSummary}
               onReturnToReview={navigateToSummary}
               onEditQuestion={editAnswer}

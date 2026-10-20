@@ -12,19 +12,52 @@ const CATEGORY_PRIORITY_MAP: Record<PriorityArea, TaskCategory[]> = {
 
 /**
  * Evaluates whether any prerequisite tasks are unmet.
+ * Strict invariants:
+ * 1. If prerequisite task exists in allTasks:
+ *    It is unmet if !prereq.isCompleted (including if it was reopened!).
+ * 2. If prerequisite task does NOT exist in allTasks:
+ *    Do NOT silently treat as satisfied!
+ *    Explicit handling:
+ *    - If the prerequisite was omitted because the user's journey stage indicates that earlier stage has elapsed
+ *      (e.g., journey_stage is 'already_abroad' for pre-arrival/border-entry tasks, or 'accepted_offer' for admission tasks),
+ *      it is treated as satisfied by virtue of the journey stage.
+ *    - Otherwise, if a prerequisite is missing and cannot be verified from the journey stage or answers,
+ *      it is treated as UNMET (true) so the dependent task is not prematurely surfaced.
  */
 export function checkHasUnmetPrerequisites(
   task: PersonalisedTask,
-  allTasks: PersonalisedTask[]
+  allTasks: PersonalisedTask[],
+  answers?: OnboardingAnswers
 ): boolean {
   if (!task.prerequisiteTaskIds || task.prerequisiteTaskIds.length === 0) {
     return false
   }
 
-  // Check if any prerequisite task exists in allTasks and is not yet completed
   for (const prereqId of task.prerequisiteTaskIds) {
     const prereq = allTasks.find(t => t.id === prereqId)
-    if (prereq && !prereq.isCompleted) {
+    if (prereq) {
+      if (!prereq.isCompleted) {
+        return true
+      }
+    } else {
+      // Prerequisite is NOT in allTasks.
+      // Explicit handling: check if the omission was due to an elapsed journey stage.
+      const isAlreadyAbroad = answers?.journey_stage === 'already_abroad'
+      const isAcceptedOffer = answers?.journey_stage === 'accepted_offer'
+
+      // Pre-arrival / border-crossing prerequisites elapsed for already_abroad users
+      const isPreArrivalOrBorderPrereq = prereqId.includes('border') || prereqId.includes('visa') || prereqId.includes('study_permit')
+      if (isAlreadyAbroad && isPreArrivalOrBorderPrereq) {
+        continue
+      }
+
+      // University admission prerequisite elapsed for accepted_offer users
+      const isAdmissionPrereq = prereqId.includes('admission') || prereqId.includes('dli_acceptance')
+      if (isAcceptedOffer && isAdmissionPrereq) {
+        continue
+      }
+
+      // Otherwise, the missing prerequisite cannot be confirmed as satisfied: treat as unmet!
       return true
     }
   }
@@ -79,7 +112,6 @@ export function computeTaskPriorityScore(
     }
   }
 
-  // 4. Prerequisite count: tasks that unlock many other tasks get a slight priority boost
   return score
 }
 
@@ -97,7 +129,7 @@ export function selectNextThreeTasks(
   // Update unmet prerequisites flags across all tasks
   const preparedTasks = allTasks.map(task => ({
     ...task,
-    hasUnmetPrerequisites: checkHasUnmetPrerequisites(task, allTasks)
+    hasUnmetPrerequisites: checkHasUnmetPrerequisites(task, allTasks, answers)
   }))
 
   // Filter for uncompleted tasks with zero unmet prerequisites

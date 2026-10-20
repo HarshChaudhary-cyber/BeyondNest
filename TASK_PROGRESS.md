@@ -343,9 +343,9 @@ All linked resources are official government or institutional bodies reviewed fo
 | Check | Tool / Command | Result | Notes |
 |---|---|---|---|
 | **TypeScript Typecheck** | `npm run typecheck` (`tsc -b`) | **PASS** | 0 type errors across all application, planning engine, and test files. |
-| **Linting** | `npm run lint` (`oxlint`) | **PASS** | 0 errors, 0 warnings across 90 files. |
-| **Unit & Integration Tests** | `npm test` (`vitest run`) | **PASS** | **101 passed tests across 9 test suites** (includes 16 focused tests in `movingPlan.test.tsx`). |
-| **Production Build** | `npm run build` (`vite build`) | **PASS** | Built in 1.23s with clean chunk splitting and gzip compression. |
+| **Linting** | `npm run lint` (`oxlint`) | **PASS** | 0 errors, 0 warnings across all 92 source files. |
+| **Unit & Integration Tests** | `npm test` (`vitest run`) | **PASS** | **116 passed tests across 10 test suites** (100% pass rate; includes 15 focused tests in `planningCorrections.test.tsx` and 16 in `movingPlan.test.tsx`). |
+| **Production Build** | `npm run build` (`vite build`) | **PASS** | Built in 1.02s with clean chunk splitting and gzip compression. |
 | **Reset Dialog Isolation** | `movingPlan.test.tsx` (Test 14) | **PASS** | Verified `inert` and `aria-hidden` attributes applied to background while dialog is active. |
 
 ---
@@ -355,6 +355,45 @@ All linked resources are official government or institutional bodies reviewed fo
 - **Automated Browser Subagent Driver Boundary:** Automated Playwright browser downloading continues to be blocked by an external CDN 404 response (`playwright.azureedge.net`) in this environment. All user interactions, focus transitions, keyboard traps, and DOM accessibility are verified via testing-library and user-event integration tests.
 - **Physical WebGL GPU Pixel Boundary:** Automated tests verify DOM accessibility, ARIA compliance, user-event interaction order, blur dismissal guards, storage migration, and 3D coordinate mathematics. They do not prove GPU pixel output or hardware shader compilation on all physical devices.
 - **Legal Advice Boundary:** BeyondNest provides practical preparation guidance and links to official resources. It explicitly does not provide legal advice, determine visa eligibility, or guarantee immigration outcomes.
+- **Immigration Accuracy Boundary:** Tests validate deterministic engine rules, state reconciliation, and persistence. Tests do not claim to validate real-world immigration case outcomes or changing consular policies.
 - **Scope Boundary:** User accounts, messaging, community matching, and automated visa eligibility checks are deferred to future milestones in strict accordance with the project brief.
+
+---
+
+## 9. Task 3.1: Planning Content, Guidance & Persistence Corrections
+
+### Corrections & Safeguards Implemented
+
+1. **Country Guidance & Resource Audit:**
+   - **Student Direct Stream (SDS) Removed:** All advice referencing SDS was purged from task actions, descriptions, and resources following IRCC's policy closure on November 8, 2024.
+   - **Unsupported Hardcoded Funding Replaced:** Removed the outdated $20,635 figure. Substituted with a direct link to the official IRCC financial support table (`ca_ircc_financial_support` at `https://www.canada.ca/en/immigration-refugees-citizenship/services/study-canada/study-permit/get-documents.html#doc3`), allowing users to evaluate current living expense requirements based on study level and family size.
+   - **PAL/TAL Exemption Guidance:** Re-framed `ca_stu_dli_acceptance` as checking PAL/TAL requirements, linking to official IRCC exemption criteria (`ca_ircc_pal_guidance`) for master's/doctoral and exchange students.
+   - **Conditional Applicability Checks:**
+     - German student visa (`de_stu_visa_application`): Differentiates EU/EEA citizens (no visa required), select countries (e.g. US, Canada, UK, Australia, Japan, South Korea who can enter visa-free and apply locally), and visa-required third-country nationals.
+     - Blocked Account (`de_stu_blocked_account`): Mentions alternatives (scholarships, formal obligation Verpflichtungserklärung) and notes EU/EEA students do not require a blocked account.
+     - Residence Permit (`de_stu_residence_permit`): Explains that EU/EEA/Swiss citizens have freedom of movement and do not require a residence permit.
+     - Health Insurance (`de_stu_health_insurance` & `ca_stu_health_insurance`): Distinguishes statutory GKV vs EHIC exemption in Germany, and institutional/provincial plans (UHIP in Ontario vs BC MSP) in Canada.
+   - **Application vs Approval Distinction:** Preserved the distinction that `visa_permission` indicates an application in progress, not an issued visa or guaranteed entry approval.
+   - **Prerequisites as Practical Dependencies:** Removed unsupported fixed timelines (e.g. rigid "3-4 months prior"). Replaced with practical milestones (e.g. after receiving admission letter, before scheduling visa appointment).
+   - **University Scope Clarity:** Explicitly labeled `ca_university_international_guide` as an institutional guide example from the University of Toronto (Centre for International Experience) in Ontario, noting that other universities differ.
+
+2. **Reconciled Task Progress Persistence & One-Click Toggle:**
+   - `MovingPlanScreen` synchronizes engine-reconciled progress (`updatedProgress`) directly on mount and prop changes without render-time side effects or infinite loops.
+   - `handleToggleTask` toggles from the currently reconciled task state (`plan.allTasks`). When a task's context is invalidated, clicking it marks it complete in exactly **ONE click**.
+   - Destination switching invalidates destination-specific tasks of the old destination; returning to an earlier destination never resurrects invalidated completion. Genuinely unchanged tasks retain completion.
+
+3. **Prerequisite Ordering & Reopening:**
+   - Reopening an unmet prerequisite immediately marks dependent tasks as blocked (`hasUnmetPrerequisites: true`) and excludes them from the Next 3 Actionable Priorities.
+   - Missing prerequisites are explicitly checked against elapsed journey stages (e.g. CBSA border entry for `already_abroad` users) rather than silently treated as satisfied. Unknown missing prerequisites are treated as unmet.
+
+4. **Fixed Expense Worksheet (`ExpenseWorksheet.tsx`):**
+   - Removed all prefilled invented numbers ($750, $250, etc.); starts completely blank with all amounts at 0.
+   - Connected to validated local storage (`beyondnest_expense_worksheet_v1`). Restores values on reload.
+   - Save button reports honest error status (`role="alert"`) if storage is unavailable, and displays success only when persistence succeeds.
+   - Changing currency updates only the denomination label without performing artificial exchange-rate conversions.
+
+5. **Reset Confirmation Clears All Data Stores:**
+   - `clearPersistedState()` removes all 4 BeyondNest storage keys: `beyondnest_onboarding_v2`, `beyondnest_onboarding_v1`, `beyondnest_moving_plan_v1`, and `beyondnest_expense_worksheet_v1`.
+
 
 

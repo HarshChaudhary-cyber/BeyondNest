@@ -20,84 +20,84 @@ export const germanyStudentsPack: DestinationPack = {
       title: (answers) => answers.university_name?.name 
         ? `Confirm admission and complete enrolment at ${answers.university_name.name}` 
         : 'Confirm university admission offer and submit formal enrolment (Immatrikulation)',
-      action: (answers) => `Verify your letter of admission (Zulassungsbescheid)${answers.university_name?.name ? ` from ${answers.university_name.name}` : ''}, pay the mandatory semester fee (Semesterbeitrag), and submit required certified documents before the enrolment deadline.`,
+      action: (answers) => `Verify your letter of admission (Zulassungsbescheid)${answers.university_name?.name ? ` from ${answers.university_name.name}` : ''}, pay the mandatory semester contribution (Semesterbeitrag), and submit required certified documents before the enrolment deadline.`,
       category: 'paperwork',
       phase: 'start_here',
-      whyItAppears: () => 'Formal university admission in Germany is the mandatory legal prerequisite before you can apply for a national student visa or open a blocked account.',
+      whyItAppears: () => 'Formal university admission in Germany is the necessary prerequisite before you can confirm enrolment, obtain health insurance notifications, or apply for a student visa.',
       isDestinationSpecific: true,
       destinationCountry: 'DE',
       resourceIds: ['de_daad_admission'],
-      suggestedTiming: () => 'Suggested: Immediately upon receiving your admission letter (typically 3–5 months before semester start)',
+      suggestedTiming: () => 'Suggested: Follow the deadline specified in your admission offer (Zulassungsbescheid)',
       prerequisiteTaskIds: [],
       isApplicable: (answers) => answers.destination_country?.code === 'DE' && answers.relocation_purpose === 'study' && answers.journey_stage !== 'already_abroad',
       computeContextKey: (answers) => `dest:DE|purp:study|uni:${answers.university_name?.name || 'undecided'}`
     },
 
-    // 2. Blocked Account / Proof of Financial Resources
+    // 2. Proof of Financial Resources (Applicability check: Blocked Account vs Alternatives)
     {
       id: 'de_stu_blocked_account',
-      title: 'Set up German proof of financial resources (Blocked Account / Sperrkonto)',
+      title: 'Check financial proof requirements for your citizenship and circumstances',
       action: (answers) => {
         const budgetText = answers.living_budget?.amount 
           ? ` (your estimated monthly budget is ${answers.living_budget.currency} ${answers.living_budget.amount.toLocaleString()})`
           : ''
-        return `Open a federally certified blocked account (Sperrkonto) with a recognized provider or secure an official formal obligation (Verpflichtungserklärung) to satisfy the statutory annual living cost requirement${budgetText}.`
+        return `Verify which proof of financial resources applies to you: while many non-EU/EEA students open a blocked account (Sperrkonto), recognized scholarships (e.g. DAAD), official declarations of commitment (Verpflichtungserklärung), or parental income records may also satisfy requirements${budgetText}. EU/EEA citizens do not need a blocked account.`
       },
       category: 'budget',
       phase: 'start_here',
-      whyItAppears: () => 'German immigration law requires all non-EU/EEA international students to prove adequate financial resources for their first year of study before issuing a student visa.',
+      whyItAppears: () => 'German immigration regulations require non-EU/EEA students to prove adequate financial resources before visa issuance. Different pathways exist depending on citizenship and funding source.',
       isDestinationSpecific: true,
       destinationCountry: 'DE',
       resourceIds: ['de_make_it_in_germany_study_visa'],
-      suggestedTiming: () => 'Suggested: 2–3 months before your scheduled visa appointment',
+      suggestedTiming: () => 'Suggested: Arrange proof of financing before your visa appointment or enrolment deadline',
       prerequisiteTaskIds: ['de_stu_admission_acceptance'],
       isApplicable: (answers) => answers.destination_country?.code === 'DE' && answers.relocation_purpose === 'study' && answers.journey_stage !== 'already_abroad',
       computeContextKey: (answers) => `dest:DE|purp:study|bgt:${answers.living_budget?.amount || 'est'}`
     },
 
-    // 3. Health Insurance
+    // 3. Health Insurance (EHIC vs Statutory GKV & M10)
     {
       id: 'de_stu_health_insurance',
-      title: 'Obtain statutory German student health insurance (Gesetzliche Krankenversicherung)',
+      title: 'Verify German student health insurance requirements and obtain electronic notification (M10)',
       action: (answers) => {
         if (answers.preparation_status?.includes('insurance')) {
-          return 'Contact a German statutory health insurance fund (e.g. TK, Barmer, AOK) to submit your existing insurance details and receive your electronic insurance certificate (M10) for university enrolment.'
+          return 'Contact a German statutory health insurance provider (Krankenkasse) to submit your existing policy details and ensure they electronically transmit registration notification M10 directly to your university.'
         }
-        return 'Enroll with a German public health insurance provider (Krankenkasse) or obtain an official exemption certificate if you hold eligible statutory European health coverage (EHIC).'
+        return 'Confirm your healthcare coverage: students under 30 typically enroll in German statutory health insurance (GKV), while EU/EEA students holding an EHIC can obtain a statutory exemption certificate. In all cases, your insurer must transmit electronic notification M10 directly to your university for enrolment.'
       },
       category: 'insurance',
       phase: 'before_departure',
       whyItAppears: (answers) => answers.preparation_status?.includes('insurance')
-        ? 'You indicated having insurance arranged. In Germany, university enrolment requires statutory electronic reporting (M10 notification) from a German public health insurance provider confirming your coverage meets federal mandates.'
-        : 'German federal law mandates that all enrolled university students have comprehensive health insurance coverage. Proof of insurance is required for both visa issuance and university enrolment.',
+        ? 'You indicated having insurance arranged. In Germany, university enrolment requires statutory electronic reporting (M10 notification) from a German public health insurer confirming your coverage meets federal mandates.'
+        : 'German federal law mandates health insurance for all university students. Proof of insurance via electronic notification M10 is legally required for enrolment.',
       isDestinationSpecific: true,
       destinationCountry: 'DE',
       resourceIds: ['de_make_it_in_germany_study_visa'],
-      suggestedTiming: () => 'Suggested: 1–2 months prior to visa interview and enrolment',
+      suggestedTiming: () => 'Suggested: Secure coverage and request M10 electronic transmission prior to university enrolment',
       prerequisiteTaskIds: ['de_stu_admission_acceptance'],
       isApplicable: (answers) => answers.destination_country?.code === 'DE' && answers.relocation_purpose === 'study' && answers.journey_stage !== 'already_abroad',
       computeContextKey: (answers) => `dest:DE|purp:study|ins:${answers.preparation_status?.includes('insurance') ? 'arranged' : 'none'}`
     },
 
-    // 4. Visa Application
+    // 4. Visa Application (Applicability check based on citizenship)
     {
       id: 'de_stu_visa_application',
-      title: 'Schedule and attend national student visa appointment (Visum zu Studienzwecken)',
+      title: 'Determine visa requirements for your citizenship and attend appointment if required',
       action: (answers) => {
         if (answers.preparation_status?.includes('visa_permission')) {
-          return 'Verify your visa approval notice, check entry validity windows on your visa sticker, and assemble physical originals of your admission letter and blocked account confirmation for border inspection.'
+          return 'Track your visa application with the German embassy or consulate, verify that your entry visa category D sticker has valid travel dates, and assemble supporting documents for border inspection.'
         }
-        return 'Book a national visa appointment at your local German embassy, consulate, or official partner centre (e.g. VFS/TLScontact), compile your application dossier, and submit biometric data.'
+        return 'Check whether your citizenship requires an entry visa: EU/EEA/Swiss citizens do not need a visa; citizens of select countries (e.g. US, Canada, UK, Australia, Japan, South Korea) can enter visa-free and apply for a residence permit locally; other third-country nationals must schedule a national visa appointment (Visum zu Studienzwecken) at a German diplomatic mission or partner centre (VFS/TLScontact).'
       },
       category: 'paperwork',
       phase: 'before_departure',
       whyItAppears: (answers) => answers.preparation_status?.includes('visa_permission')
-        ? 'You noted having applied for or received permission. Ensure your visa is formally issued, check valid entry dates, and pack supporting paperwork for entry border control.'
-        : 'Third-country nationals intending to study in Germany require a national category D entry visa before arrival. Processing times vary widely by consular post.',
+        ? 'You noted having applied for or received permission. Ensure your visa is formally issued, as a submitted application does not guarantee border entry.'
+        : 'Entry visa regulations in Germany depend on your citizenship. Verifying requirements early ensures sufficient time for consular appointment scheduling.',
       isDestinationSpecific: true,
       destinationCountry: 'DE',
       resourceIds: ['de_auswaertiges_amt_visa', 'de_make_it_in_germany_study_visa'],
-      suggestedTiming: () => 'Suggested: 2–3 months before target relocation date',
+      suggestedTiming: () => 'Suggested: Check consular wait times at your local mission and apply as early as permitted before travel',
       prerequisiteTaskIds: ['de_stu_admission_acceptance', 'de_stu_blocked_account', 'de_stu_health_insurance'],
       isApplicable: (answers) => answers.destination_country?.code === 'DE' && answers.relocation_purpose === 'study' && answers.journey_stage !== 'already_abroad',
       computeContextKey: (answers) => `dest:DE|purp:study|visa:${answers.preparation_status?.includes('visa_permission') ? 'in_progress' : 'unapplied'}`
@@ -122,7 +122,7 @@ export const germanyStudentsPack: DestinationPack = {
       isDestinationSpecific: true,
       destinationCountry: 'DE',
       resourceIds: ['de_dsw_student_housing'],
-      suggestedTiming: () => 'Suggested: Immediately upon receiving university offer / 2–3 months before arrival',
+      suggestedTiming: () => 'Suggested: Apply for student dormitories as early as possible and arrange interim lodging before travel',
       prerequisiteTaskIds: [],
       isApplicable: (answers) => answers.destination_country?.code === 'DE' && answers.relocation_purpose === 'study',
       computeContextKey: (answers) => `dest:DE|purp:study|housing:${answers.preparation_status?.includes('housing') ? 'arranged' : 'none'}|city:${answers.destination_city?.cityName || 'undecided'}`
@@ -139,7 +139,7 @@ export const germanyStudentsPack: DestinationPack = {
       isDestinationSpecific: true,
       destinationCountry: 'DE',
       resourceIds: ['de_dsw_student_housing'],
-      suggestedTiming: () => 'Suggested: Within first 14 days after moving into permanent accommodation',
+      suggestedTiming: () => 'Suggested: Under German law (§ 17 BMG), register within 14 days of moving into permanent accommodation',
       prerequisiteTaskIds: ['de_stu_housing_search'],
       isApplicable: (answers) => answers.destination_country?.code === 'DE' && answers.relocation_purpose === 'study',
       computeContextKey: (answers) => `dest:DE|purp:study|city:${answers.destination_city?.cityName || 'undecided'}`
@@ -148,32 +148,32 @@ export const germanyStudentsPack: DestinationPack = {
     // 7. Local Bank Checking Account
     {
       id: 'de_stu_bank_account',
-      title: 'Open a German checking account (Girokonto) and unlock blocked account disbursements',
-      action: () => 'Open a student checking account at a German retail or direct bank with your passport and Meldebestätigung, then submit your new IBAN to your blocked account provider to initiate monthly allowance disbursements.',
+      title: 'Open a German checking account (Girokonto) and unlock disbursements if applicable',
+      action: () => 'Open a student checking account at a German retail or direct bank with your passport and Meldebestätigung, then set up SEPA direct debits for rent and health insurance, or provide your IBAN to your blocked account provider if applicable.',
       category: 'budget',
       phase: 'arrival_settling',
       whyItAppears: () => 'German recurring payments—including monthly rent, health insurance contributions, mobile contracts, and blocked account payouts—operate through direct SEPA debit from a German Girokonto.',
       isDestinationSpecific: true,
       destinationCountry: 'DE',
       resourceIds: ['de_make_it_in_germany_study_visa'],
-      suggestedTiming: () => 'Suggested: Within your first 2 weeks after municipal registration',
+      suggestedTiming: () => 'Suggested: After completing municipal address registration (Meldebestätigung)',
       prerequisiteTaskIds: ['de_stu_anmeldung_city_reg'],
       isApplicable: (answers) => answers.destination_country?.code === 'DE' && answers.relocation_purpose === 'study',
       computeContextKey: (_answers) => `dest:DE|purp:study|bank`
     },
 
-    // 8. Electronic Residence Permit (Aufenthaltstitel)
+    // 8. Electronic Residence Permit (Applicability check)
     {
       id: 'de_stu_residence_permit',
-      title: 'Apply for your electronic student residence permit (Aufenthaltstitel) at Ausländerbehörde',
-      action: () => 'Schedule an in-person appointment with your local immigration authority (Ausländerbehörde) before your entry visa expires to convert your visa into a multi-year electronic residence title (eAT).',
+      title: 'Determine residence permit requirements and apply at Ausländerbehörde if applicable',
+      action: () => 'Non-EU/EEA students residing in Germany for degree studies must apply for an electronic residence permit (§ 16b AufenthG) at their local immigration authority (Ausländerbehörde) before their entry visa or 90-day visa-free stay expires. EU/EEA/Swiss citizens have freedom of movement and do not need a residence permit.',
       category: 'paperwork',
       phase: 'arrival_settling',
-      whyItAppears: () => 'German entry visas are issued for 3 to 6 months. International students must apply for a formal student residence permit (§ 16b AufenthG) for the duration of their degree studies.',
+      whyItAppears: () => 'German entry visas are issued for 3 to 6 months. International students from outside the EU/EEA must apply for a formal student residence permit (§ 16b AufenthG) for the duration of their studies.',
       isDestinationSpecific: true,
       destinationCountry: 'DE',
       resourceIds: ['de_make_it_in_germany_study_visa'],
-      suggestedTiming: () => 'Suggested: 4–6 weeks after arrival, well before your entry visa expires',
+      suggestedTiming: () => 'Suggested: Schedule appointment well before your entry visa or 90-day visa-free stay expires',
       prerequisiteTaskIds: ['de_stu_anmeldung_city_reg', 'de_stu_bank_account'],
       isApplicable: (answers) => answers.destination_country?.code === 'DE' && answers.relocation_purpose === 'study',
       computeContextKey: (_answers) => `dest:DE|purp:study|residence`

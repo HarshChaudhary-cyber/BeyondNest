@@ -84,6 +84,26 @@ export function generatePersonalisedPlan(
   const updatedTasksMap: Record<string, PlanTaskRecord> = { ...storedProgress.tasks }
   const newlyInvalidated: Array<{ taskId: string; taskTitle: string; reason: string }> = []
 
+  // Check if destination changed: invalidate tasks tied to previous destination
+  if (storedProgress.destinationCode && destCode && storedProgress.destinationCode !== destCode) {
+    const oldDest = storedProgress.destinationCode
+    for (const [tId, record] of Object.entries(updatedTasksMap)) {
+      if (record.contextKey.includes(`dest:${oldDest}`) || tId.startsWith(`${oldDest.toLowerCase()}_`)) {
+        if (record.completed) {
+          newlyInvalidated.push({
+            taskId: tId,
+            taskTitle: tId,
+            reason: `Destination changed from ${oldDest} to ${destCode}.`
+          })
+        }
+        updatedTasksMap[tId] = {
+          ...record,
+          completed: false
+        }
+      }
+    }
+  }
+
   // Track unique templates by ID to prevent duplicates
   const seenIds = new Set<string>()
   const uniqueTemplates: TaskTemplate[] = []
@@ -169,7 +189,7 @@ export function generatePersonalisedPlan(
 
   // 4. Update unmet prerequisites across all tasks
   for (const task of personalisedTasks) {
-    task.hasUnmetPrerequisites = checkHasUnmetPrerequisites(task, personalisedTasks)
+    task.hasUnmetPrerequisites = checkHasUnmetPrerequisites(task, personalisedTasks, answers)
   }
 
   // 5. Select next three actionable tasks
@@ -206,6 +226,7 @@ export function generatePersonalisedPlan(
   const updatedProgress: StoredPlanState = {
     version: storedProgress.version || 1,
     updatedAt: new Date().toISOString(),
+    destinationCode: destCode,
     tasks: updatedTasksMap,
     invalidatedTasks: newlyInvalidated.length > 0 
       ? [...newlyInvalidated, ...(storedProgress.invalidatedTasks || [])].slice(0, 5)

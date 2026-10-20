@@ -20,6 +20,16 @@ export function validateAndSanitizeStoredPlan(raw: unknown): StoredPlanState {
   }
 
   const obj = raw as Record<string, unknown>
+
+  // Version check: return clean default state if stored version is unsupported
+  if (obj.version !== CURRENT_PLAN_SCHEMA_VERSION) {
+    return { ...DEFAULT_PLAN_STATE }
+  }
+
+  const destinationCode = typeof obj.destinationCode === 'string' && obj.destinationCode.length > 0
+    ? obj.destinationCode
+    : undefined
+
   const tasks: Record<string, PlanTaskRecord> = {}
 
   if (obj.tasks && typeof obj.tasks === 'object') {
@@ -56,6 +66,7 @@ export function validateAndSanitizeStoredPlan(raw: unknown): StoredPlanState {
   return {
     version: CURRENT_PLAN_SCHEMA_VERSION,
     updatedAt: typeof obj.updatedAt === 'string' ? obj.updatedAt : new Date().toISOString(),
+    destinationCode,
     tasks,
     invalidatedTasks
   }

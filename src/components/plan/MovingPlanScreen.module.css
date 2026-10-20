@@ -58,6 +58,10 @@
   color: var(--bn-color-teal-700);
 }
 
+.storageWarning {
+  color: #D97706;
+}
+
 .planBadge {
   display: inline-flex;
   align-items: center;

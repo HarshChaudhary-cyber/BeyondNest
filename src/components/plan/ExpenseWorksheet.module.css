@@ -172,6 +172,28 @@
   font-family: var(--bn-font-display);
 }
 
+.saveFeedback {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 4px 8px;
+  border-radius: var(--bn-radius-sm);
+}
+
+.saveSuccess {
+  background-color: var(--bn-color-teal-50);
+  color: var(--bn-color-teal-700);
+  border: 1px solid var(--bn-color-teal-200);
+}
+
+.saveError {
+  background-color: #FEF2F2;
+  color: #DC2626;
+  border: 1px solid #FECACA;
+}
+
 @media (max-width: 640px) {
   .worksheetCard {
     padding: var(--bn-space-4);

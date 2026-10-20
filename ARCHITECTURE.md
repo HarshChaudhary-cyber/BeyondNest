@@ -247,3 +247,22 @@ The confirmation reset dialog implements strict top-layer modal isolation:
 3. Native `onCancel` intercepted to handle Escape key cleanly.
 4. Initial keyboard focus directed to safe Cancel button. Focus returns to the triggering button upon cancellation.
 
+### Task 3.1: Reconciled Planning & Storage Architecture
+1. **Reconciliation & One-Click Toggle:**
+   - `MovingPlanScreen` synchronizes engine-reconciled progress (`updatedProgress`) directly on mount and upon prop revisions without render-time side effects or infinite loops.
+   - `handleToggleTask` toggles from the currently reconciled task state (`plan.allTasks`), ensuring that when a task's context is invalidated, exactly ONE click transitions it to completed.
+2. **Prevention of Invalidated Task Resurrection:**
+   - When the user changes destination (e.g. from Germany to Canada), destination-specific tasks of the old destination are explicitly marked `completed: false` in `updatedProgress.tasks`.
+   - Returning to an earlier destination does not resurrect invalidated completion. Genuinely unchanged general tasks (e.g. solo community building) retain completion.
+3. **Prerequisite Dependency Handling:**
+   - Reopening an unmet prerequisite (e.g. unchecking university admission) immediately re-blocks dependent tasks (`hasUnmetPrerequisites: true`) and removes them from the Next 3 Actionable Priorities.
+   - Tasks omitted because earlier journey stages have elapsed (e.g. CBSA border entry for users who are `already_abroad`) are explicitly treated as satisfied for settling-in tasks, while arbitrary missing prerequisites are strictly treated as unmet.
+4. **Expense Worksheet Persistence (`beyondnest_expense_worksheet_v1`):**
+   - Starts with blank defaults (all amounts zero; no prefilled invented numbers).
+   - Validated schema with version check (`version: 1`). Unsupported schema versions safely reset to blank defaults.
+   - Saves to localStorage and reports failures honestly (displays an alert if storage is unavailable without claiming success).
+   - Changing currency updates only the denomination without performing artificial exchange-rate conversions.
+5. **Comprehensive Reset Cleanup:**
+   - Explicit confirmation of "Reset everything" clears all 4 BeyondNest storage keys: `beyondnest_onboarding_v2`, `beyondnest_onboarding_v1`, `beyondnest_moving_plan_v1`, and `beyondnest_expense_worksheet_v1`.
+
+

@@ -531,13 +531,15 @@ export function savePersistedState(state: StoredOnboardingState): StorageStatus 
 }
 
 /**
- * Clear onboarding persistence across all schema versions.
+ * Clear all BeyondNest persistence (onboarding, moving-plan progress, and worksheet data).
  */
 export function clearPersistedState(): void {
   if (typeof window === 'undefined') return
   try {
     localStorage.removeItem(STORAGE_KEY_V2)
     localStorage.removeItem(STORAGE_KEY_V1)
+    localStorage.removeItem('beyondnest_moving_plan_v1')
+    localStorage.removeItem('beyondnest_expense_worksheet_v1')
   } catch (err) {
     console.warn('[BeyondNest] Failed to clear onboarding state:', err)
   }

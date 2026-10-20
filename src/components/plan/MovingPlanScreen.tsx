@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react'
+import React, { useState, useMemo, useCallback } from 'react'
 import { 
   CheckCircle2, 
   Circle, 
@@ -13,12 +13,13 @@ import {
   Check, 
   Sparkles,
   BookOpen,
-  FileCheck2
+  FileCheck2,
+  AlertTriangle
 } from 'lucide-react'
 import type { OnboardingAnswers, StorageStatus, QuestionId } from '../../store/types'
-import type { JourneyPhase, TaskCategory } from '../../planning/types'
+import type { JourneyPhase, TaskCategory, StoredPlanState } from '../../planning/types'
 import { generatePersonalisedPlan } from '../../planning/engine'
-import { loadPlanProgress, savePlanProgress } from '../../planning/storage'
+import { loadPlanProgress, savePlanProgress, CURRENT_PLAN_SCHEMA_VERSION } from '../../planning/storage'
 import { Button } from '../common/Button/Button'
 import { ExpenseWorksheet } from './ExpenseWorksheet'
 import { FallbackPackingSuitcase } from '../scenes/fallbacks/Task2Fallbacks'
@@ -50,6 +51,19 @@ const PHASE_NAMES: Record<JourneyPhase, string> = {
   arrival_settling: '3. Arrival & settling in'
 }
 
+function hasReconciledDifferences(a: StoredPlanState, b: StoredPlanState): boolean {
+  if (a.destinationCode !== b.destinationCode) return true
+  if ((a.invalidatedTasks?.length ?? 0) !== (b.invalidatedTasks?.length ?? 0)) return true
+  const aKeys = Object.keys(a.tasks)
+  const bKeys = Object.keys(b.tasks)
+  if (aKeys.length !== bKeys.length) return true
+  return aKeys.some(id => {
+    const recA = a.tasks[id]
+    const recB = b.tasks[id]
+    return !recB || recA.completed !== recB.completed || recA.contextKey !== recB.contextKey
+  })
+}
+
 export const MovingPlanScreen: React.FC<MovingPlanScreenProps> = ({
   answers,
   storageStatus = 'saved',
@@ -57,40 +71,63 @@ export const MovingPlanScreen: React.FC<MovingPlanScreenProps> = ({
   onReturnToReview,
   onStartAgain
 }) => {
-  // Load plan state from local storage and generate plan
-  const [storedProgress, setStoredProgress] = useState(() => loadPlanProgress())
+  // Load and reconcile plan state on initial mount
+  const [storedProgress, setStoredProgress] = useState<StoredPlanState>(() => {
+    const loaded = loadPlanProgress()
+    const { updatedProgress } = generatePersonalisedPlan(answers, loaded)
+    if (hasReconciledDifferences(loaded, updatedProgress)) {
+      savePlanProgress(updatedProgress)
+      return updatedProgress
+    }
+    return loaded
+  })
+
+  // Synchronize state directly when answers prop changes
+  const [prevAnswers, setPrevAnswers] = useState(answers)
+  if (answers !== prevAnswers) {
+    setPrevAnswers(answers)
+    const { updatedProgress } = generatePersonalisedPlan(answers, storedProgress)
+    if (hasReconciledDifferences(storedProgress, updatedProgress)) {
+      savePlanProgress(updatedProgress)
+      setStoredProgress(updatedProgress)
+    }
+  }
+
   const [activeTab, setActiveTab] = useState<'all' | JourneyPhase>('all')
   const [expandedTasks, setExpandedTasks] = useState<Record<string, boolean>>({})
+  const [planSaveStatus, setPlanSaveStatus] = useState<StorageStatus>(() => storageStatus)
 
-  // Re-generate plan and reconcile with progress
+  // Re-generate plan from currently reconciled progress
   const { plan } = useMemo(() => {
     return generatePersonalisedPlan(answers, storedProgress)
   }, [answers, storedProgress])
 
-  // Toggle task completion
-  const handleToggleTask = (taskId: string) => {
-    setStoredProgress(prev => {
-      const existing = prev.tasks[taskId]
-      const nextCompleted = !existing?.completed
-      const task = plan.allTasks.find(t => t.id === taskId)
-      const contextKey = task ? task.contextKey : (existing?.contextKey || 'gen')
+  // Toggle task completion from current reconciled task state (guarantees 1-click completion)
+  const handleToggleTask = useCallback((taskId: string) => {
+    const currentTask = plan.allTasks.find(t => t.id === taskId)
+    const nextCompleted = currentTask ? !currentTask.isCompleted : !storedProgress.tasks[taskId]?.completed
+    const contextKey = currentTask ? currentTask.contextKey : (storedProgress.tasks[taskId]?.contextKey || 'gen')
+    const nowIso = new Date().toISOString()
 
-      const updated = {
-        ...prev,
-        updatedAt: new Date().toISOString(),
-        tasks: {
-          ...prev.tasks,
-          [taskId]: {
-            completed: nextCompleted,
-            completedAt: nextCompleted ? new Date().toISOString() : undefined,
-            contextKey
-          }
+    const nextProgress: StoredPlanState = {
+      ...storedProgress,
+      version: CURRENT_PLAN_SCHEMA_VERSION,
+      updatedAt: nowIso,
+      destinationCode: plan.destinationCode,
+      tasks: {
+        ...storedProgress.tasks,
+        [taskId]: {
+          completed: nextCompleted,
+          completedAt: nextCompleted ? nowIso : undefined,
+          contextKey
         }
       }
-      savePlanProgress(updated)
-      return updated
-    })
-  }
+    }
+
+    const ok = savePlanProgress(nextProgress)
+    setPlanSaveStatus(ok ? 'saved' : 'error')
+    setStoredProgress(nextProgress)
+  }, [plan, storedProgress])
 
   const toggleExpand = (taskId: string) => {
     setExpandedTasks(prev => ({
@@ -120,8 +157,16 @@ export const MovingPlanScreen: React.FC<MovingPlanScreenProps> = ({
         <div className={styles.luggageHeader}>
           <div className={styles.luggageEyelet} aria-hidden="true" />
           <div className={styles.headerMeta}>
-            <span className={`${styles.storageBadge} ${storageStatus === 'saved' ? styles.storageSaved : ''}`} role="status">
-              <Check size={14} /> Saved to browser storage
+            <span className={`${styles.storageBadge} ${planSaveStatus === 'saved' ? styles.storageSaved : styles.storageWarning}`} role="status">
+              {planSaveStatus === 'saved' ? (
+                <>
+                  <Check size={14} /> Saved to browser storage
+                </>
+              ) : (
+                <>
+                  <AlertTriangle size={14} /> In-memory only (storage unavailable)
+                </>
+              )}
             </span>
             <div className={styles.planBadge}>
               <Compass size={15} />
@@ -136,7 +181,7 @@ export const MovingPlanScreen: React.FC<MovingPlanScreenProps> = ({
             <div className={styles.destinationEyebrow}>
               <span>{plan.destinationTitle}</span>
               {plan.hasDestinationPack && (
-                <span className={styles.packTag}>Verified Destination Guide</span>
+                <span className={styles.packTag}>Curated Destination Guide</span>
               )}
             </div>
             <h1 className={styles.headline}>

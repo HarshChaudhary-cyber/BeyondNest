@@ -1,15 +1,14 @@
 import React, { useState } from 'react'
-import { Calculator, Check, Info } from 'lucide-react'
+import { Calculator, Check, Info, AlertTriangle } from 'lucide-react'
 import { Button } from '../common/Button/Button'
 import { SUPPORTED_CURRENCIES } from '../../data/currencies'
+import { 
+  loadWorksheetState, 
+  saveWorksheetState, 
+  WORKSHEET_ITEM_DEFINITIONS, 
+  type StoredWorksheetState 
+} from '../../planning/worksheetStorage'
 import styles from './ExpenseWorksheet.module.css'
-
-export interface ExpenseItem {
-  id: string
-  label: string
-  placeholder: number
-  amount: number
-}
 
 export interface ExpenseWorksheetProps {
   initialCurrency?: string
@@ -17,40 +16,51 @@ export interface ExpenseWorksheetProps {
   onSaveEstimate?: (currency: string, total: number) => void
 }
 
-const DEFAULT_ITEMS: ExpenseItem[] = [
-  { id: 'rent', label: 'Rent & Accommodation (flatshare / room)', placeholder: 750, amount: 750 },
-  { id: 'groceries', label: 'Groceries & Household Food', placeholder: 250, amount: 250 },
-  { id: 'transit', label: 'Public Transit / Student Semester Pass', placeholder: 60, amount: 60 },
-  { id: 'utilities', label: 'Mobile Connectivity & Utilities', placeholder: 50, amount: 50 },
-  { id: 'insurance', label: 'Mandatory Health & Travel Insurance', placeholder: 120, amount: 120 },
-  { id: 'leisure', label: 'Personal Expenses & Course Materials', placeholder: 150, amount: 150 }
-]
-
 export const ExpenseWorksheet: React.FC<ExpenseWorksheetProps> = ({
   initialCurrency = 'EUR',
   onSaveEstimate
 }) => {
-  const [currency, setCurrency] = useState<string>(initialCurrency)
-  const [items, setItems] = useState<ExpenseItem[]>(DEFAULT_ITEMS)
-  const [savedSuccess, setSavedSuccess] = useState(false)
+  // Load saved worksheet state from validated local storage or start with blank defaults (amounts = 0)
+  const [worksheetState, setWorksheetState] = useState<StoredWorksheetState>(() => {
+    return loadWorksheetState(initialCurrency)
+  })
+
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'success' | 'error'>('idle')
 
   const handleAmountChange = (id: string, valStr: string) => {
     const val = parseFloat(valStr)
-    setItems(prev => prev.map(item => {
-      if (item.id === id) {
-        return { ...item, amount: isNaN(val) || val < 0 ? 0 : val }
+    setWorksheetState(prev => ({
+      ...prev,
+      items: {
+        ...prev.items,
+        [id]: isNaN(val) || val < 0 ? 0 : val
       }
-      return item
     }))
-    setSavedSuccess(false)
+    setSaveStatus('idle')
   }
 
-  const totalMonthly = items.reduce((sum, item) => sum + item.amount, 0)
+  // Changing currency updates only the currency denomination; it does not convert or scale amounts
+  const handleCurrencyChange = (newCurrency: string) => {
+    setWorksheetState(prev => ({
+      ...prev,
+      currency: newCurrency
+    }))
+    setSaveStatus('idle')
+  }
+
+  const totalMonthly = Object.values(worksheetState.items).reduce((sum, val) => sum + val, 0)
 
   const handleSave = () => {
-    onSaveEstimate?.(currency, totalMonthly)
-    setSavedSuccess(true)
-    setTimeout(() => setSavedSuccess(false), 3000)
+    const success = saveWorksheetState(worksheetState)
+    if (success) {
+      setSaveStatus('success')
+      onSaveEstimate?.(worksheetState.currency, totalMonthly)
+      setTimeout(() => {
+        setSaveStatus(prev => prev === 'success' ? 'idle' : prev)
+      }, 4000)
+    } else {
+      setSaveStatus('error')
+    }
   }
 
   return (
@@ -70,7 +80,7 @@ export const ExpenseWorksheet: React.FC<ExpenseWorksheetProps> = ({
       <div className={styles.notice}>
         <Info size={16} className={styles.noticeIcon} />
         <span>
-          <strong>Research Guidance:</strong> BeyondNest does not fabricate living-cost figures. Use official student union benchmarks (e.g. Studierendenwerk in Germany, EduCanada in Canada) to plug in realistic figures for your specific town or city.
+          <strong>Research Guidance:</strong> BeyondNest does not fabricate living-cost figures. Use official student union benchmarks (e.g. Deutsches Studierendenwerk in Germany, EduCanada and IRCC tables in Canada) to plug in realistic figures for your specific town or city.
         </span>
       </div>
 
@@ -80,8 +90,8 @@ export const ExpenseWorksheet: React.FC<ExpenseWorksheetProps> = ({
         </label>
         <select
           id="worksheet-currency-select"
-          value={currency}
-          onChange={(e) => setCurrency(e.target.value)}
+          value={worksheetState.currency}
+          onChange={(e) => handleCurrencyChange(e.target.value)}
           className={styles.currencySelect}
         >
           {SUPPORTED_CURRENCIES.map(c => (
@@ -93,46 +103,59 @@ export const ExpenseWorksheet: React.FC<ExpenseWorksheetProps> = ({
       </div>
 
       <div className={styles.itemsList}>
-        {items.map(item => (
-          <div key={item.id} className={styles.itemRow}>
-            <label htmlFor={`worksheet-item-${item.id}`} className={styles.itemLabel}>
-              {item.label}
-            </label>
-            <div className={styles.inputWrapper}>
-              <span className={styles.currencyPrefix}>{currency}</span>
-              <input
-                id={`worksheet-item-${item.id}`}
-                type="number"
-                min="0"
-                step="10"
-                value={item.amount === 0 ? '' : item.amount}
-                onChange={(e) => handleAmountChange(item.id, e.target.value)}
-                className={styles.amountInput}
-                placeholder={String(item.placeholder)}
-              />
+        {WORKSHEET_ITEM_DEFINITIONS.map(item => {
+          const currentVal = worksheetState.items[item.id] ?? 0
+          return (
+            <div key={item.id} className={styles.itemRow}>
+              <label htmlFor={`worksheet-item-${item.id}`} className={styles.itemLabel}>
+                {item.label}
+              </label>
+              <div className={styles.inputWrapper}>
+                <span className={styles.currencyPrefix}>{worksheetState.currency}</span>
+                <input
+                  id={`worksheet-item-${item.id}`}
+                  type="number"
+                  min="0"
+                  step="10"
+                  value={currentVal === 0 ? '' : currentVal}
+                  onChange={(e) => handleAmountChange(item.id, e.target.value)}
+                  className={styles.amountInput}
+                  placeholder={item.placeholder}
+                />
+              </div>
             </div>
-          </div>
-        ))}
+          )
+        })}
       </div>
 
       <div className={styles.totalRow}>
         <div className={styles.totalLabel}>
           <span>Estimated Total Monthly Living Expenses:</span>
           <span className={styles.totalAmount}>
-            {currency} {totalMonthly.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
+            {worksheetState.currency} {totalMonthly.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
           </span>
         </div>
 
-        {onSaveEstimate && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          {saveStatus === 'success' && (
+            <span className={`${styles.saveFeedback} ${styles.saveSuccess}`} role="status">
+              <Check size={14} /> Saved to worksheet
+            </span>
+          )}
+          {saveStatus === 'error' && (
+            <span className={`${styles.saveFeedback} ${styles.saveError}`} role="alert">
+              <AlertTriangle size={14} /> Storage unavailable — failed to save
+            </span>
+          )}
+
           <Button
             variant="outline"
             size="sm"
             onClick={handleSave}
-            iconLeft={savedSuccess ? <Check size={14} color="#0D9488" /> : undefined}
           >
-            {savedSuccess ? 'Saved to worksheet' : 'Save this estimate'}
+            Save this estimate
           </Button>
-        )}
+        </div>
       </div>
     </div>
   )
