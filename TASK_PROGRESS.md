@@ -240,28 +240,121 @@
 
 ---
 
-## 5. Validation Matrix
+---
+
+## 5. Task 3: Source-Backed Personalised Moving Plans
+
+### Features Implemented
+
+1. **Decoupled Planning Engine Architecture:**
+   - **Separation of Concerns:** Isolated task templates, applicability rules, prerequisite/priority ordering, official resource records, destination packs, user task progress, and UI presentation components across `src/planning/`.
+   - **Pure Personalisation Logic:** Pure engine function `generatePersonalisedPlan(answers, storedProgress)` reconciles user answers with applicable packs, evaluates prerequisites, scores top-3 immediate actions, and checks context key validity.
+   - **No AI / Backend Dependencies:** Driven 100% by deterministic, configurable rules without third-party AI APIs, authentication, backend servers, or paid subscriptions.
+
+2. **Curated Destination Resource Packs:**
+   - **Germany: International Students (`pack_germany_students`):**
+     - Admission & enrolment at German universities.
+     - Statutory proof of financial resources via federally approved Blocked Account (Sperrkonto).
+     - Statutory health insurance (Gesetzliche Krankenversicherung) & electronic reporting (M10).
+     - Category D national student visa appointment (Visum zu Studienzwecken).
+     - Studierendenwerk student halls & temporary accommodation in target city.
+     - Mandatory municipal address registration (Anmeldung beim Bürgeramt) within 14 days.
+     - German student checking account (Girokonto) & blocked account payouts.
+     - Electronic residence permit (Aufenthaltstitel) at local Ausländerbehörde.
+   - **Canada: International Students (`pack_canada_students`):**
+     - Designated Learning Institution (DLI) acceptance & Provincial Attestation Letter (PAL).
+     - Financial proof & Guaranteed Investment Certificate (GIC).
+     - IRCC online study permit application and biometrics.
+     - Student health insurance coverage (e.g. provincial UHIP).
+     - Campus residence and temporary arrival housing in target city.
+     - Border inspection & physical study permit issuance at first Canadian port of entry.
+     - Social Insurance Number (SIN) from Service Canada for legal on/off-campus work.
+     - Canadian student bank account setup.
+
+3. **Fallback and Exploration Planning:**
+   - **Unsupported Destinations:** When destination is specific but lacks a curated pack (e.g. France, Australia), the engine generates practical general relocation tasks alongside an honest notice: *"A curated destination pack is not yet available for [Country]. BeyondNest provides verified general relocation guidance while country-specific packs are in development. We do not apply rules from another country."*
+   - **Undecided Movers (`explore: true`):** Generates comparative research tasks aligned with user stated priorities (quality education, living costs, languages, community roots). Does not invent country rankings, scores, or artificial visa percentages.
+
+4. **Personalisation & Special Context Rules:**
+   - **Housing Arranged vs Not Arranged:** Arranged housing prompts lease confirmation and landlord registration slips (e.g. Wohnungsgeberbestätigung); unarranged housing guides student hall applications and temporary accommodation.
+   - **Insurance Arranged:** Avoids claiming coverage is adequate; prompts verifying statutory recognition and transition dates.
+   - **Moving Solo vs Family:** Solo movers receive local community network and student society tasks; family movers receive dependent visa, certified translation, and schooling tasks.
+   - **Backpacking Route Order:** Preserves the user's tentative country sequence in action text (e.g. "1. Japan → 2. Vietnam → 3. Thailand") and includes lightweight modular gear tasks.
+   - **Already Abroad:** Prioritises settling-in tasks (local address registration, tax ID, residency conversion); pre-departure tasks are not marked as urgent.
+   - **Skipped Citizenship:** Generates an entry rules check task explaining that entry guidance cannot be confirmed without passport nationality.
+   - **Visa Permission Ambiguity:** Treats `visa_permission` preparation checkbox as in-progress rather than proof of approval, directing user to verify official decision letter and entry window.
+   - **Job Offer Inference Guard:** Never infers that a job offer exists from generic journey stage wording alone.
+
+5. **Prerequisites and Top 3 Actionable Priorities:**
+   - Priority scoring in `src/planning/rules/priorities.ts` selects the next three actionable tasks using timeline, journey stage, user priorities, and unresolved prerequisites.
+   - **Strict Prerequisite Guard:** A dependent task (e.g. German visa appointment) is *never* ranked ahead of an unmet prerequisite (e.g. university admission or blocked account).
+   - Tasks are grouped into non-punitive journey phases ("1. Start here", "2. Before departure", "3. Arrival & settling in").
+
+6. **Moving Plan User Interface:**
+   - **Summary Screen Integration:** Added primary call-to-action button *"View my moving plan"* to `SummaryScreen.tsx` (`id="view-plan-button"`).
+   - **Responsive Plan Screen (`MovingPlanScreen.tsx`):**
+     - Luggage-tag header with honest local storage indicator.
+     - Destination eyebrow with verified guide badge.
+     - Top 3 actionable priorities grid with category tags and step numbers.
+     - Phase filtering tabs ("All", "Start here", "Before departure", "Arrival & settling in").
+     - Expandable task cards with "Why this appears", verified source links with external link icon, and toggle completion button.
+     - Separate completed tasks section with "Reopen" action.
+     - Navigation controls: "Back to profile review", "Edit answers", and "Start again".
+     - Removed milestone numbers and internal development terminology from review and plan screens.
+   - **Interactive Expense Worksheet (`ExpenseWorksheet.tsx`):**
+     - Embedded when user selected "Help me estimate" budget.
+     - Allows budgeting housing, groceries, transit, health insurance, and connectivity locally. No fabricated living costs or fake currency conversions.
+
+7. **Context-Dependent Invalidation & Persistence:**
+   - Stored in localStorage under `beyondnest_moving_plan_v1`.
+   - Each task computes a context key: `computeContextKey(answers)`.
+   - When profile answers change, genuinely unchanged tasks retain completion; tasks whose destination or core context changed (e.g. German housing when changing destination to Canada) are invalidated back to incomplete, and a material change notification is displayed.
+   - Corrupted or invalid plan storage is safely sanitized.
+
+8. **Finish Reset-Dialog Isolation:**
+   - Upgraded `ConfirmResetDialog.tsx` to use native `<dialog>` element operated via `showModal()`.
+   - Wrapped main page content in `OnboardingShell.tsx` in a container with `inert={isResetDialogOpen ? true : undefined}` and `aria-hidden={isResetDialogOpen ? true : undefined}` to guarantee total background isolation across all browsers and test environments.
+   - Preserved Cancel button initial focus, Tab loop trap, Escape key cancellation, and trigger focus restoration.
+
+---
+
+## 6. Official Sources Reviewed & Verified
+
+All linked resources are official government or institutional bodies reviewed for accuracy in October 2026:
+
+| Resource ID | Title | Publisher | Destination / Scope | Reviewed Date |
+|---|---|---|---|---|
+| `de_make_it_in_germany_study_visa` | Studying in Germany — Visa Requirements | Federal Ministry for Economic Affairs and Climate Action (BMWK) & Federal Employment Agency (BA) | Germany (Study) | October 2026 |
+| `de_daad_admission` | Requirements for Studying in Germany | German Academic Exchange Service (DAAD) | Germany (Study) | October 2026 |
+| `de_auswaertiges_amt_visa` | National Visa for Studies in Germany | Federal Foreign Office (Auswärtiges Amt) | Germany (Study) | October 2026 |
+| `de_dsw_student_housing` | Student Accommodation in Germany | Deutsches Studierendenwerk (DSW) | Germany (Housing) | October 2026 |
+| `ca_ircc_study_permit` | Study in Canada as an International Student | Immigration, Refugees and Citizenship Canada (IRCC) | Canada (Study) | October 2026 |
+| `ca_ircc_border_arrival` | Prepare for Arrival in Canada — Border Control | Immigration, Refugees and Citizenship Canada (IRCC) | Canada (Arrival) | October 2026 |
+| `ca_educanada_portal` | EduCanada: Official International Student Portal | Global Affairs Canada (EduCanada) | Canada (Study) | October 2026 |
+| `ca_university_international_guide` | International Student Services & Settling Guide | University International Student Services & Provincial Authorities | Canada (Settling) | October 2026 |
+| `gen_official_portal_directory` | Official Embassies & National Immigration Consular Directory | Consular Affairs & National Immigration Authorities | Global / General | October 2026 |
+| `gen_iata_travel_centre` | IATA Travel Centre — International Entry & Passport Regulations | International Air Transport Association (IATA) | Global / Travel | October 2026 |
+| `gen_who_travel_health` | International Travel and Health Requirements | World Health Organization (WHO) | Global / Health | October 2026 |
+
+---
+
+## 7. Validation Matrix
 
 | Check | Tool / Command | Result | Notes |
 |---|---|---|---|
-| **TypeScript Typecheck** | `npm run typecheck` (`tsc -b`) | **PASS** | 0 type errors across all application and test files. |
-| **Linting** | `npm run lint` (`oxlint`) | **PASS** | 0 errors, 0 warnings across 76 files. |
-| **Unit & Integration Tests** | `npm test` (`vitest run`) | **PASS** | **85 passed tests across 8 test suites** (includes 19 focused tests in `reviewSafetyAndValidation.test.tsx`). |
-| **Production Build** | `npm run build` (`vite build`) | **PASS** | Built in 1.72s with clean chunk splitting and gzip compression. |
-| **Dev Server Execution** | `npm run dev` | **PASS** | Running on `http://localhost:5173/`. |
+| **TypeScript Typecheck** | `npm run typecheck` (`tsc -b`) | **PASS** | 0 type errors across all application, planning engine, and test files. |
+| **Linting** | `npm run lint` (`oxlint`) | **PASS** | 0 errors, 0 warnings across 90 files. |
+| **Unit & Integration Tests** | `npm test` (`vitest run`) | **PASS** | **101 passed tests across 9 test suites** (includes 16 focused tests in `movingPlan.test.tsx`). |
+| **Production Build** | `npm run build` (`vite build`) | **PASS** | Built in 1.23s with clean chunk splitting and gzip compression. |
+| **Reset Dialog Isolation** | `movingPlan.test.tsx` (Test 14) | **PASS** | Verified `inert` and `aria-hidden` attributes applied to background while dialog is active. |
 
 ---
 
-## 6. Limitations & Honest Reporting
+## 8. Limitations & Honest Reporting
 
 - **Automated Browser Subagent Driver Boundary:** Automated Playwright browser downloading continues to be blocked by an external CDN 404 response (`playwright.azureedge.net`) in this environment. All user interactions, focus transitions, keyboard traps, and DOM accessibility are verified via testing-library and user-event integration tests.
 - **Physical WebGL GPU Pixel Boundary:** Automated tests verify DOM accessibility, ARIA compliance, user-event interaction order, blur dismissal guards, storage migration, and 3D coordinate mathematics. They do not prove GPU pixel output or hardware shader compilation on all physical devices.
-- **Recommendations Deferred:** No automated recommendation calculations, visa eligibility rules, or live web APIs are implemented in this milestone, in strict accordance with the task specification.
+- **Legal Advice Boundary:** BeyondNest provides practical preparation guidance and links to official resources. It explicitly does not provide legal advice, determine visa eligibility, or guarantee immigration outcomes.
+- **Scope Boundary:** User accounts, messaging, community matching, and automated visa eligibility checks are deferred to future milestones in strict accordance with the project brief.
 
----
-
-## 7. Recommended Next Milestone
-
-- **Milestone 3: Source-Backed Personalised Planning Engine**
-  - Implement country-specific requirements, visa timelines, housing checklists, and cost-of-living models backed by authoritative, curated government and institutional sources.
 

@@ -16,7 +16,7 @@ export const ConfirmResetDialog: React.FC<ConfirmResetDialogProps> = ({
   onCancel,
   triggerElement
 }) => {
-  const dialogRef = useRef<HTMLDivElement>(null)
+  const dialogRef = useRef<HTMLDialogElement>(null)
   const cancelButtonRef = useRef<HTMLButtonElement>(null)
   const confirmButtonRef = useRef<HTMLButtonElement>(null)
   const savedTriggerRef = useRef<HTMLElement | null>(null)
@@ -28,11 +28,44 @@ export const ConfirmResetDialog: React.FC<ConfirmResetDialogProps> = ({
     }
   }, [isOpen, triggerElement])
 
+  // Native dialog showModal / close lifecycle
+  useEffect(() => {
+    const dialog = dialogRef.current
+    if (!dialog) return
+
+    if (isOpen) {
+      if (typeof dialog.showModal === 'function') {
+        try {
+          if (!dialog.open) {
+            dialog.showModal()
+          }
+        } catch {
+          // Fallback if already open or in non-compliant environment
+        }
+      }
+      if (!dialog.hasAttribute('open')) {
+        dialog.setAttribute('open', '')
+      }
+    } else {
+      if (typeof dialog.close === 'function') {
+        try {
+          if (dialog.open) {
+            dialog.close()
+          }
+        } catch {
+          // Fallback
+        }
+      }
+      if (dialog.hasAttribute('open')) {
+        dialog.removeAttribute('open')
+      }
+    }
+  }, [isOpen])
+
   // Initial focus on Cancel button when opened
   useEffect(() => {
     if (!isOpen) return
 
-    // Small delay to ensure DOM paint and avoid premature blur
     const timer = setTimeout(() => {
       cancelButtonRef.current?.focus()
     }, 20)
@@ -50,7 +83,7 @@ export const ConfirmResetDialog: React.FC<ConfirmResetDialogProps> = ({
 
   const handleConfirm = React.useCallback(() => {
     onConfirm()
-    // Move focus to primary destination on the welcome screen
+    // Move focus to primary call-to-action on the welcome screen
     setTimeout(() => {
       const planBtn = document.getElementById('plan-my-move-button')
       if (planBtn) {
@@ -108,9 +141,8 @@ export const ConfirmResetDialog: React.FC<ConfirmResetDialogProps> = ({
           handleCancel()
         }
       }}
-      aria-hidden={!isOpen}
     >
-      <div
+      <dialog
         ref={dialogRef}
         role="alertdialog"
         aria-modal="true"
@@ -118,6 +150,10 @@ export const ConfirmResetDialog: React.FC<ConfirmResetDialogProps> = ({
         aria-describedby="confirm-dialog-description"
         className={styles.dialog}
         tabIndex={-1}
+        onCancel={(e) => {
+          e.preventDefault()
+          handleCancel()
+        }}
       >
         <div className={styles.header}>
           <div className={styles.iconWrapper} aria-hidden="true">
@@ -153,7 +189,7 @@ export const ConfirmResetDialog: React.FC<ConfirmResetDialogProps> = ({
             Reset everything
           </Button>
         </div>
-      </div>
+      </dialog>
     </div>
   )
 }

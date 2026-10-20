@@ -173,3 +173,77 @@ export const FEATURE_FLAGS = {
 5. **Zero Horizontal Overflow:** Desktop scene sits beside the question form; mobile view displays a compact scene above the question with responsive CSS layout.
 
 5. **Progressive Loading:** Bundles are chunk-split so core application HTML, CSS, and UI controls become interactive immediately, while 3D geometry renders inside a `<Suspense>` wrapper.
+
+---
+
+## 9. Source-Backed Personalised Planning Engine
+
+The moving plan system introduced in Milestone 3 converts validated onboarding responses into practical, deterministic preparation plans backed by official government resources. It is entirely deterministic and requires no AI APIs, backend servers, or third-party tracking.
+
+### Architectural Separation of Concerns
+The planning system is organized into decoupled domain modules under `src/planning/`:
+
+```
+src/planning/
+├── types.ts                     # Domain interfaces (MovingPlan, TaskTemplate, DestinationPack, etc.)
+├── resources.ts                 # Curated official resources with reviewed dates & limitations
+├── engine.ts                    # Orchestrator reconciling answers, templates, and progress
+├── storage.ts                   # Versioned persistence under 'beyondnest_moving_plan_v1'
+├── rules/
+│   └── priorities.ts            # Priority scoring, prerequisite enforcement, and top-3 selection
+├── packs/
+│   ├── index.ts                 # Pack registry and lookup helpers
+│   ├── germanyStudents.ts       # Germany international student destination pack
+│   └── canadaStudents.ts        # Canada international student destination pack
+└── templates/
+    ├── generalTasks.ts          # General international preparation tasks (fallback)
+    ├── researchTasks.ts         # Exploration tasks reflecting user priorities
+    └── specialContextTasks.ts   # Backpacking, family, solo, and already abroad rules
+```
+
+### Destination Packs Scope
+Curated destination packs provide verified statutory advice for specific relocation journeys:
+- **Germany — International Students (`pack_germany_students`):**
+  - Admission & enrolment at German universities.
+  - Statutory proof of financial resources via federally approved Blocked Account (Sperrkonto).
+  - Statutory health insurance (Gesetzliche Krankenversicherung) & electronic reporting (M10).
+  - Category D national student visa appointment (Visum zu Studienzwecken).
+  - Studierendenwerk student halls & temporary accommodation in target city.
+  - Mandatory municipal address registration (Anmeldung beim Bürgeramt) within 14 days.
+  - German student checking account (Girokonto) & blocked account payouts.
+  - Electronic residence permit (Aufenthaltstitel) at local Ausländerbehörde.
+- **Canada — International Students (`pack_canada_students`):**
+  - Designated Learning Institution (DLI) acceptance & Provincial Attestation Letter (PAL).
+  - Financial proof & Guaranteed Investment Certificate (GIC).
+  - IRCC online study permit application and biometrics.
+  - Student health insurance coverage (e.g. provincial UHIP).
+  - Campus residence and temporary arrival housing in target city.
+  - Border inspection & physical study permit issuance at first Canadian port of entry.
+  - Social Insurance Number (SIN) from Service Canada for legal on/off-campus work.
+  - Canadian student bank account setup.
+
+### Fallback and Exploration Planning Logic
+- **Unsupported Destinations:** When a user selects a destination without a curated pack (e.g. France, Australia), the engine displays practical general relocation tasks alongside an explicit notice: *"A curated destination pack is not yet available for [Country]. BeyondNest provides verified general relocation guidance while country-specific packs are in development. We do not apply rules from another country."* Rules from Germany or Canada are never silently reused.
+- **Undecided Movers (`explore: true`):** Generates comparative research tasks focused directly on the user's stated priorities (study opportunities, living costs, languages, community). Does not invent arbitrary country rankings, suitability scores, or artificial visa percentages.
+
+### Context Key Invalidation Architecture
+To ensure data integrity when users edit profile answers:
+- Every task template defines a pure `computeContextKey(answers)` function (e.g. `dest:DE|purp:study|housing:none|city:Munich`).
+- When regenerating the plan after profile revisions, existing task progress is compared against the newly computed context key.
+- If the substantive context changes (e.g. destination changes from Germany to Canada, or housing status changes from none to arranged), the task's completion flag is automatically invalidated (`isCompleted = false`), and an explanatory record is logged.
+- Tasks whose requirements are country-agnostic (e.g. vital records apostille) retain their completion state.
+
+### How to Add a New Destination Pack
+1. Add official publisher resources with review dates and limitations to `src/planning/resources.ts`.
+2. Create a new pack file in `src/planning/packs/` conforming to `DestinationPack`:
+   - Define `id`, `destinationCountry` (ISO code), `purpose`, `title`, `description`, and `resources`.
+   - Implement `taskTemplates` with `category`, `phase`, `isApplicable`, and `computeContextKey`.
+3. Register the new pack in `DESTINATION_PACKS` array in `src/planning/packs/index.ts`.
+
+### Reset-Dialog Top-Layer Isolation
+The confirmation reset dialog implements strict top-layer modal isolation:
+1. Native `<dialog>` element operated via `showModal()` and `close()`.
+2. Main content wrapper receives `inert={isResetDialogOpen ? true : undefined}` and `aria-hidden={isResetDialogOpen ? true : undefined}` while the dialog is open.
+3. Native `onCancel` intercepted to handle Escape key cleanly.
+4. Initial keyboard focus directed to safe Cancel button. Focus returns to the triggering button upon cancellation.
+

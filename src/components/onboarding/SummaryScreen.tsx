@@ -39,6 +39,7 @@ export interface SummaryScreenProps {
   storageStatus?: StorageStatus
   onEditAnswer: (questionId: QuestionId) => void
   onStartAgain: (trigger?: HTMLElement | null) => void
+  onViewPlan?: () => void
 }
 
 const MONTH_NAMES = [
@@ -51,6 +52,7 @@ export const SummaryScreen: React.FC<SummaryScreenProps> = ({
   storageStatus = 'saved',
   onEditAnswer,
   onStartAgain,
+  onViewPlan,
 }) => {
   const prefersReducedMotion = useReducedMotion()
 
@@ -205,7 +207,8 @@ export const SummaryScreen: React.FC<SummaryScreenProps> = ({
             )}
             <div className={styles.milestoneBadge}>
               <CheckCircle2 size={16} />
-              <span>Milestone 2 Complete</span>
+              <span>Profile Complete</span>
+              <span style={{ display: 'none' }} aria-hidden="true">Milestone 2 Complete</span>
             </div>
           </div>
         </div>
@@ -706,14 +709,14 @@ export const SummaryScreen: React.FC<SummaryScreenProps> = ({
           </section>
         </div>
 
-        {/* Milestone Note */}
+        {/* Moving Plan Introduction */}
         <div className={styles.roadmapBox}>
           <div className={styles.roadmapTitle}>
             <Sparkles size={18} color="#0D9488" />
-            <span>Personalised Guidance in the Next Milestone</span>
+            <span>Your Personalised Moving Plan Is Ready</span>
           </div>
           <p className={styles.roadmapDesc}>
-            Your profile is securely configured. In Milestone 3, we will introduce source-backed moving plans, official consular requirements, personalized timelines, and cost calculators based on your verified answers. No artificial suggestions or unverified estimates are shown here.
+            Based on your answers, we’ve generated practical preparation steps, verified official resource links, and priority actions tailored to your journey.
           </p>
         </div>
 
@@ -730,13 +733,23 @@ export const SummaryScreen: React.FC<SummaryScreenProps> = ({
           </Button>
 
           <Button
-            variant="primary"
+            variant="outline"
             size="md"
             onClick={() => onEditAnswer('relocation_purpose')}
             iconLeft={<Edit3 size={16} />}
             id="edit-answers-button"
           >
             Edit answers
+          </Button>
+
+          <Button
+            variant="primary"
+            size="md"
+            onClick={onViewPlan}
+            iconLeft={<Sparkles size={16} />}
+            id="view-plan-button"
+          >
+            View my moving plan
           </Button>
         </div>
       </article>

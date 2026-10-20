@@ -22,6 +22,16 @@ Object.defineProperty(window, 'matchMedia', {
   }),
 })
 
+// Polyfill HTMLDialogElement for jsdom
+if (typeof HTMLDialogElement !== 'undefined') {
+  HTMLDialogElement.prototype.showModal = function () {
+    this.setAttribute('open', '')
+  }
+  HTMLDialogElement.prototype.close = function () {
+    this.removeAttribute('open')
+  }
+}
+
 afterEach(() => {
   cleanup()
   localStorage.clear()

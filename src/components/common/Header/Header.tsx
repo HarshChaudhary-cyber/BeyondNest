@@ -40,8 +40,8 @@ export const Header: React.FC<HeaderProps> = ({
       </div>
 
       <div className={styles.actions}>
-        <div className={styles.milestonePill} title="Milestone 2 Adaptive">
-          <span>🏷️ Milestone 2 Adaptive</span>
+        <div className={styles.milestonePill} title="Relocation Planner">
+          <span>✈️ Relocation Planner</span>
         </div>
 
         {showReset && (

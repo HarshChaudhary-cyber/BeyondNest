@@ -760,6 +760,16 @@ export function useOnboardingStore() {
     }))
   }, [])
 
+  const navigateToPlan = useCallback(() => {
+    setValidationError(null)
+    setScreen({ type: 'plan' })
+  }, [])
+
+  const navigateToSummary = useCallback(() => {
+    setValidationError(null)
+    setScreen({ type: 'summary' })
+  }, [])
+
   const resetOnboarding = useCallback(() => {
     clearPersistedState()
     setIsReviewEditing(false)
@@ -800,6 +810,8 @@ export function useOnboardingStore() {
     setAnswer,
     startOnboarding,
     navigateToWelcome,
+    navigateToPlan,
+    navigateToSummary,
     goToNextQuestion,
     goToPreviousQuestion,
     editAnswer,

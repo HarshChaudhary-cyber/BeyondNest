@@ -4,6 +4,7 @@ import { ConfirmResetDialog } from '../common/ConfirmResetDialog/ConfirmResetDia
 import { WelcomeScreen } from './WelcomeScreen'
 import { QuestionScreen } from './QuestionScreen'
 import { SummaryScreen } from './SummaryScreen'
+import { MovingPlanScreen } from '../plan/MovingPlanScreen'
 import { useOnboardingStore } from '../../store/onboardingStore'
 import { BRAND } from '../../config/brand'
 import styles from './OnboardingShell.module.css'
@@ -22,6 +23,8 @@ export const OnboardingShell: React.FC = () => {
     setAnswer,
     startOnboarding,
     navigateToWelcome,
+    navigateToPlan,
+    navigateToSummary,
     goToNextQuestion,
     goToPreviousQuestion,
     editAnswer,
@@ -31,7 +34,7 @@ export const OnboardingShell: React.FC = () => {
   const [isResetDialogOpen, setIsResetDialogOpen] = useState(false)
   const [resetTriggerElement, setResetTriggerElement] = useState<HTMLElement | null>(null)
 
-  const isFlowActive = screen.type === 'question' || screen.type === 'summary'
+  const isFlowActive = screen.type === 'question' || screen.type === 'summary' || screen.type === 'plan'
 
   const handleRequestReset = (trigger?: HTMLElement | null) => {
     setResetTriggerElement(trigger || (document.activeElement as HTMLElement | null))
@@ -40,41 +43,66 @@ export const OnboardingShell: React.FC = () => {
 
   return (
     <div className={styles.shell}>
-      <Header 
-        showReset={isFlowActive} 
-        onReset={(e) => handleRequestReset(e?.currentTarget)}
-        onLogoClick={navigateToWelcome}
-      />
+      <div 
+        className={styles.contentWrapper}
+        inert={isResetDialogOpen ? true : undefined}
+        aria-hidden={isResetDialogOpen ? true : undefined}
+      >
+        <Header 
+          showReset={isFlowActive} 
+          onReset={(e) => handleRequestReset(e?.currentTarget)}
+          onLogoClick={navigateToWelcome}
+        />
 
-      <div className={styles.mainContent}>
-        {screen.type === 'welcome' && (
-          <WelcomeScreen
-            answers={answers}
-            onStart={startOnboarding}
-          />
-        )}
+        <div className={styles.mainContent}>
+          {screen.type === 'welcome' && (
+            <WelcomeScreen
+              answers={answers}
+              onStart={startOnboarding}
+            />
+          )}
 
-        {screen.type === 'question' && currentQuestion && (
-          <QuestionScreen
-            question={currentQuestion}
-            stepNumber={currentStepNumber}
-            totalSteps={totalSteps}
-            answers={answers}
-            validationError={validationError}
-            onAnswerChange={setAnswer}
-            onNext={goToNextQuestion}
-            onPrevious={goToPreviousQuestion}
-          />
-        )}
+          {screen.type === 'question' && currentQuestion && (
+            <QuestionScreen
+              question={currentQuestion}
+              stepNumber={currentStepNumber}
+              totalSteps={totalSteps}
+              answers={answers}
+              validationError={validationError}
+              onAnswerChange={setAnswer}
+              onNext={goToNextQuestion}
+              onPrevious={goToPreviousQuestion}
+            />
+          )}
 
-        {screen.type === 'summary' && (
-          <SummaryScreen
-            answers={answers}
-            storageStatus={storageStatus}
-            onEditAnswer={editAnswer}
-            onStartAgain={handleRequestReset}
-          />
-        )}
+          {screen.type === 'summary' && (
+            <SummaryScreen
+              answers={answers}
+              storageStatus={storageStatus}
+              onEditAnswer={editAnswer}
+              onStartAgain={handleRequestReset}
+              onViewPlan={navigateToPlan}
+            />
+          )}
+
+          {screen.type === 'plan' && (
+            <MovingPlanScreen
+              answers={answers}
+              onEditProfile={navigateToSummary}
+              onReturnToReview={navigateToSummary}
+              onEditQuestion={editAnswer}
+            />
+          )}
+        </div>
+
+        <footer className={styles.footer}>
+          <span>© {CURRENT_YEAR} {BRAND.name}. {BRAND.tagline}</span>
+          <div className={styles.footerLinks}>
+            <span>Adaptive Relocation Preparation</span>
+            <span>•</span>
+            <span>Privacy Conscious (Local Only)</span>
+          </div>
+        </footer>
       </div>
 
       <ConfirmResetDialog
@@ -88,15 +116,6 @@ export const OnboardingShell: React.FC = () => {
           setIsResetDialogOpen(false)
         }}
       />
-
-      <footer className={styles.footer}>
-        <span>© {CURRENT_YEAR} {BRAND.name}. {BRAND.tagline}</span>
-        <div className={styles.footerLinks}>
-          <span>Milestone 2 Adaptive Onboarding</span>
-          <span>•</span>
-          <span>Privacy Conscious (Local Only)</span>
-        </div>
-      </footer>
     </div>
   )
 }

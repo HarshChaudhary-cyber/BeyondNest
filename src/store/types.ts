@@ -229,3 +229,4 @@ export type FlowScreen =
   | { type: 'welcome' }
   | { type: 'question'; questionId: QuestionId }
   | { type: 'summary' }
+  | { type: 'plan' }
